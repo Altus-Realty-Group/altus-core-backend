@@ -1,0 +1,32 @@
+name: ALTUS-CORE NIGHT WATCH
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * *'
+
+jobs:
+  write-path-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run write-path verification
+        env:
+          PGPASSWORD: ${{ secrets.ALTUS_CORE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "=== ALTUS CORE WRITE PATH CHECK ==="
+          psql "${{ secrets.ALTUS_CORE_DB_URL }}" << 'EOF'
+          SHOW transaction_read_only;
+          SELECT current_user;
+          SELECT session_user;
+          BEGIN;
+          CREATE TEMP TABLE ecc_write_test(id int);
+          INSERT INTO ecc_write_test VALUES (1);
+          ROLLBACK;
+          EOF
