@@ -1,0 +1,128 @@
+name: ALTUS-CORE — STAGING Nightly Audit (Diff + Migrate + Validate)
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 1:00am Central (06:00 UTC)
+  workflow_dispatch: {}
+
+concurrency:
+  group: staging-nightly-audit
+  cancel-in-progress: false
+
+jobs:
+  staging-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Login to Supabase
+        run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
+
+      - name: Compute STAGING db_url (pooler, URL-safe password)
+        id: dburl
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+          PROJECT_REF: ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          ENCODED_PASSWORD="$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD']))")"
+          echo "db_url=postgresql://postgres.${PROJECT_REF}:${ENCODED_PASSWORD}@aws-0-us-west-2.pooler.supabase.com:5432/postgres" >> $GITHUB_OUTPUT
+          echo "psql_user=postgres.${PROJECT_REF}" >> $GITHUB_OUTPUT
+
+      # (2) MIGRATIONS — APPLY TO STAGING
+      - name: Apply migrations to STAGING (db push)
+        env:
+          DB_URL: ${{ steps.dburl.outputs.db_url }}
+        run: |
+          set -euo pipefail
+          supabase db push --db-url "$DB_URL"
+
+      # (1) DIFF/REPORT — WHAT MIGRATIONS ARE APPLIED VS REPO FILES
+      - name: Install psql client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Migration coverage report (repo vs DB)
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+          PROJECT_REF: ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+          PSQL_USER: ${{ steps.dburl.outputs.psql_user }}
+        run: |
+          set -euo pipefail
+          echo "=== REPO MIGRATIONS ==="
+          ls -1 supabase/migrations | sort | tee repo_migrations.txt
+
+          echo "=== DB APPLIED MIGRATIONS (supabase_migrations.schema_migrations) ==="
+          # Supabase migration table name used by CLI
+          psql "host=aws-0-us-west-2.pooler.supabase.com dbname=postgres user=${PSQL_USER} sslmode=require" \
+            -c "select version from supabase_migrations.schema_migrations order by version;" \
+            | tee db_migrations_raw.txt
+
+          # Extract versions to a clean list
+          awk '/^[0-9]/{print $1}' db_migrations_raw.txt | sort | tee db_migrations.txt
+
+          echo "=== MISSING IN DB (repo files not applied) ==="
+          comm -23 repo_migrations.txt db_migrations.txt | tee missing_in_db.txt || true
+
+          echo "=== EXTRA IN DB (applied but not in repo) ==="
+          comm -13 repo_migrations.txt db_migrations.txt | tee extra_in_db.txt || true
+
+      # (3) VALIDATION — SCHEMA + RLS + POLICIES + BASIC HEALTH
+      - name: Schema validation queries (STAGING)
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+          PROJECT_REF: ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+          PSQL_USER: ${{ steps.dburl.outputs.psql_user }}
+        run: |
+          set -euo pipefail
+
+          echo "=== TABLE PRESENCE CHECK ==="
+          psql "host=aws-0-us-west-2.pooler.supabase.com dbname=postgres user=${PSQL_USER} sslmode=require" \
+            -c "select tablename from pg_tables where schemaname='public' order by tablename;" \
+            | tee tables.txt
+
+          echo "=== REQUIRED TABLES CHECK (assets family) ==="
+          psql "host=aws-0-us-west-2.pooler.supabase.com dbname=postgres user=${PSQL_USER} sslmode=require" \
+            -c "select tablename from pg_tables where schemaname='public' and tablename in ('assets','asset_data_raw','asset_specs_reconciled') order by tablename;" \
+            | tee required_tables.txt
+
+          echo "=== RLS STATUS (public.*) ==="
+          psql "host=aws-0-us-west-2.pooler.supabase.com dbname=postgres user=${PSQL_USER} sslmode=require" \
+            -c "select relname as table, relrowsecurity as rls_enabled from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' order by relname;" \
+            | tee rls_status.txt
+
+          echo "=== POLICIES (public.*) ==="
+          psql "host=aws-0-us-west-2.pooler.supabase.com dbname=postgres user=${PSQL_USER} sslmode=require" \
+            -c "select schemaname, tablename, policyname, permissive, roles, cmd from pg_policies where schemaname='public' order by tablename, policyname;" \
+            | tee policies.txt
+
+          echo "=== INDEXES (public.assets*) ==="
+          psql "host=aws-0-us-west-2.pooler.supabase.com dbname=postgres user=${PSQL_USER} sslmode=require" \
+            -c "select tablename, indexname, indexdef from pg_indexes where schemaname='public' and tablename like 'asset%' order by tablename, indexname;" \
+            | tee indexes_assets.txt
+
+      - name: Upload audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-nightly-audit
+          path: |
+            repo_migrations.txt
+            db_migrations_raw.txt
+            db_migrations.txt
+            missing_in_db.txt
+            extra_in_db.txt
+            tables.txt
+            required_tables.txt
+            rls_status.txt
+            policies.txt
+            indexes_assets.txt
