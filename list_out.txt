@@ -1,0 +1,8 @@
+Initialising login role...
+Connecting to remote database...
+
+  
+   Local | Remote | Time (UTC) 
+  -------|--------|------------
+   0001  | 0001   | 0001       
+

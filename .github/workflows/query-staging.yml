@@ -1,0 +1,18 @@
+name: Query Staging
+on: workflow_dispatch
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: query
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+        run: |
+          ENCODED_PASSWORD="$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD']))")"
+          supabase db exec --db-url "postgresql://postgres.${{ secrets.SUPABASE_STAGING_PROJECT_REF }}:${ENCODED_PASSWORD}@aws-0-us-west-2.pooler.supabase.com:5432/postgres" "select * from supabase_migrations.schema_migrations;"

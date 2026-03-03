@@ -1,0 +1,183 @@
+migrate-staging	Set up job	﻿2026-03-03T20:12:51.4318547Z Current runner version: '2.331.0'
+migrate-staging	Set up job	2026-03-03T20:12:51.4345194Z ##[group]Runner Image Provisioner
+migrate-staging	Set up job	2026-03-03T20:12:51.4346212Z Hosted Compute Agent
+migrate-staging	Set up job	2026-03-03T20:12:51.4346824Z Version: 20260213.493
+migrate-staging	Set up job	2026-03-03T20:12:51.4347412Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+migrate-staging	Set up job	2026-03-03T20:12:51.4348233Z Build Date: 2026-02-13T00:28:41Z
+migrate-staging	Set up job	2026-03-03T20:12:51.4348902Z Worker ID: {56b9a801-3f0d-4a91-b871-6f67119571cd}
+migrate-staging	Set up job	2026-03-03T20:12:51.4349628Z Azure Region: eastus
+migrate-staging	Set up job	2026-03-03T20:12:51.4350185Z ##[endgroup]
+migrate-staging	Set up job	2026-03-03T20:12:51.4352539Z ##[group]Operating System
+migrate-staging	Set up job	2026-03-03T20:12:51.4353255Z Ubuntu
+migrate-staging	Set up job	2026-03-03T20:12:51.4353782Z 24.04.3
+migrate-staging	Set up job	2026-03-03T20:12:51.4354226Z LTS
+migrate-staging	Set up job	2026-03-03T20:12:51.4354745Z ##[endgroup]
+migrate-staging	Set up job	2026-03-03T20:12:51.4355343Z ##[group]Runner Image
+migrate-staging	Set up job	2026-03-03T20:12:51.4355908Z Image: ubuntu-24.04
+migrate-staging	Set up job	2026-03-03T20:12:51.4356529Z Version: 20260224.36.1
+migrate-staging	Set up job	2026-03-03T20:12:51.4357629Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260224.36/images/ubuntu/Ubuntu2404-Readme.md
+migrate-staging	Set up job	2026-03-03T20:12:51.4359508Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260224.36
+migrate-staging	Set up job	2026-03-03T20:12:51.4360461Z ##[endgroup]
+migrate-staging	Set up job	2026-03-03T20:12:51.4361815Z ##[group]GITHUB_TOKEN Permissions
+migrate-staging	Set up job	2026-03-03T20:12:51.4364088Z Contents: read
+migrate-staging	Set up job	2026-03-03T20:12:51.4364688Z Metadata: read
+migrate-staging	Set up job	2026-03-03T20:12:51.4365396Z ##[endgroup]
+migrate-staging	Set up job	2026-03-03T20:12:51.4367390Z Secret source: Actions
+migrate-staging	Set up job	2026-03-03T20:12:51.4368163Z Prepare workflow directory
+migrate-staging	Set up job	2026-03-03T20:12:51.4700845Z Prepare all required actions
+migrate-staging	Set up job	2026-03-03T20:12:51.4738593Z Getting action download info
+migrate-staging	Set up job	2026-03-03T20:12:51.7860126Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+migrate-staging	Set up job	2026-03-03T20:12:51.9155988Z Download action repository 'supabase/setup-cli@v1' (SHA:b60b5899c73b63a2d2d651b1e90db8d4c9392f51)
+migrate-staging	Set up job	2026-03-03T20:12:52.2415709Z Complete job name: migrate-staging
+migrate-staging	Checkout	﻿2026-03-03T20:12:52.3118771Z ##[group]Run actions/checkout@v4
+migrate-staging	Checkout	2026-03-03T20:12:52.3119630Z with:
+migrate-staging	Checkout	2026-03-03T20:12:52.3120111Z   repository: Altus-Realty-Group/altus-core-backend
+migrate-staging	Checkout	2026-03-03T20:12:52.3120881Z   token: ***
+migrate-staging	Checkout	2026-03-03T20:12:52.3121274Z   ssh-strict: true
+migrate-staging	Checkout	2026-03-03T20:12:52.3122116Z   ssh-user: git
+migrate-staging	Checkout	2026-03-03T20:12:52.3122550Z   persist-credentials: true
+migrate-staging	Checkout	2026-03-03T20:12:52.3123016Z   clean: true
+migrate-staging	Checkout	2026-03-03T20:12:52.3123435Z   sparse-checkout-cone-mode: true
+migrate-staging	Checkout	2026-03-03T20:12:52.3123934Z   fetch-depth: 1
+migrate-staging	Checkout	2026-03-03T20:12:52.3124322Z   fetch-tags: false
+migrate-staging	Checkout	2026-03-03T20:12:52.3124842Z   show-progress: true
+migrate-staging	Checkout	2026-03-03T20:12:52.3125260Z   lfs: false
+migrate-staging	Checkout	2026-03-03T20:12:52.3125739Z   submodules: false
+migrate-staging	Checkout	2026-03-03T20:12:52.3126274Z   set-safe-directory: true
+migrate-staging	Checkout	2026-03-03T20:12:52.3127060Z ##[endgroup]
+migrate-staging	Checkout	2026-03-03T20:12:52.4235061Z Syncing repository: Altus-Realty-Group/altus-core-backend
+migrate-staging	Checkout	2026-03-03T20:12:52.4238112Z ##[group]Getting Git version info
+migrate-staging	Checkout	2026-03-03T20:12:52.4239457Z Working directory is '/home/runner/work/altus-core-backend/altus-core-backend'
+migrate-staging	Checkout	2026-03-03T20:12:52.4241874Z [command]/usr/bin/git version
+migrate-staging	Checkout	2026-03-03T20:12:52.4308725Z git version 2.53.0
+migrate-staging	Checkout	2026-03-03T20:12:52.4336164Z ##[endgroup]
+migrate-staging	Checkout	2026-03-03T20:12:52.4361856Z Temporarily overriding HOME='/home/runner/work/_temp/3f19cac6-4ace-472c-a27e-e592f543d173' before making global git config changes
+migrate-staging	Checkout	2026-03-03T20:12:52.4364226Z Adding repository directory to the temporary git global config as a safe directory
+migrate-staging	Checkout	2026-03-03T20:12:52.4367591Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/altus-core-backend/altus-core-backend
+migrate-staging	Checkout	2026-03-03T20:12:52.4411101Z Deleting the contents of '/home/runner/work/altus-core-backend/altus-core-backend'
+migrate-staging	Checkout	2026-03-03T20:12:52.4414575Z ##[group]Initializing the repository
+migrate-staging	Checkout	2026-03-03T20:12:52.4418728Z [command]/usr/bin/git init /home/runner/work/altus-core-backend/altus-core-backend
+migrate-staging	Checkout	2026-03-03T20:12:52.4530921Z hint: Using 'master' as the name for the initial branch. This default branch name
+migrate-staging	Checkout	2026-03-03T20:12:52.4533033Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+migrate-staging	Checkout	2026-03-03T20:12:52.4534758Z hint: to use in all of your new repositories, which will suppress this warning,
+migrate-staging	Checkout	2026-03-03T20:12:52.4536557Z hint: call:
+migrate-staging	Checkout	2026-03-03T20:12:52.4537269Z hint:
+migrate-staging	Checkout	2026-03-03T20:12:52.4538075Z hint: 	git config --global init.defaultBranch <name>
+migrate-staging	Checkout	2026-03-03T20:12:52.4539067Z hint:
+migrate-staging	Checkout	2026-03-03T20:12:52.4540072Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+migrate-staging	Checkout	2026-03-03T20:12:52.4542034Z hint: 'development'. The just-created branch can be renamed via this command:
+migrate-staging	Checkout	2026-03-03T20:12:52.4543367Z hint:
+migrate-staging	Checkout	2026-03-03T20:12:52.4544049Z hint: 	git branch -m <name>
+migrate-staging	Checkout	2026-03-03T20:12:52.4544862Z hint:
+migrate-staging	Checkout	2026-03-03T20:12:52.4546005Z hint: Disable this message with "git config set advice.defaultBranchName false"
+migrate-staging	Checkout	2026-03-03T20:12:52.4548014Z Initialized empty Git repository in /home/runner/work/altus-core-backend/altus-core-backend/.git/
+migrate-staging	Checkout	2026-03-03T20:12:52.4551209Z [command]/usr/bin/git remote add origin https://github.com/Altus-Realty-Group/altus-core-backend
+migrate-staging	Checkout	2026-03-03T20:12:52.4587643Z ##[endgroup]
+migrate-staging	Checkout	2026-03-03T20:12:52.4588981Z ##[group]Disabling automatic garbage collection
+migrate-staging	Checkout	2026-03-03T20:12:52.4591052Z [command]/usr/bin/git config --local gc.auto 0
+migrate-staging	Checkout	2026-03-03T20:12:52.4623939Z ##[endgroup]
+migrate-staging	Checkout	2026-03-03T20:12:52.4625200Z ##[group]Setting up auth
+migrate-staging	Checkout	2026-03-03T20:12:52.4630982Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+migrate-staging	Checkout	2026-03-03T20:12:52.4665561Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+migrate-staging	Checkout	2026-03-03T20:12:52.5050332Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+migrate-staging	Checkout	2026-03-03T20:12:52.5084211Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+migrate-staging	Checkout	2026-03-03T20:12:52.5318937Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+migrate-staging	Checkout	2026-03-03T20:12:52.5357971Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+migrate-staging	Checkout	2026-03-03T20:12:52.5619828Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+migrate-staging	Checkout	2026-03-03T20:12:52.5656119Z ##[endgroup]
+migrate-staging	Checkout	2026-03-03T20:12:52.5657443Z ##[group]Fetching the repository
+migrate-staging	Checkout	2026-03-03T20:12:52.5666149Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +0f83e53dec9a1dd82867f860f0b57dbed9c1658c:refs/remotes/origin/main
+migrate-staging	Checkout	2026-03-03T20:12:52.7413861Z From https://github.com/Altus-Realty-Group/altus-core-backend
+migrate-staging	Checkout	2026-03-03T20:12:52.7415476Z  * [new ref]         0f83e53dec9a1dd82867f860f0b57dbed9c1658c -> origin/main
+migrate-staging	Checkout	2026-03-03T20:12:52.7449184Z ##[endgroup]
+migrate-staging	Checkout	2026-03-03T20:12:52.7450049Z ##[group]Determining the checkout info
+migrate-staging	Checkout	2026-03-03T20:12:52.7451887Z ##[endgroup]
+migrate-staging	Checkout	2026-03-03T20:12:52.7457082Z [command]/usr/bin/git sparse-checkout disable
+migrate-staging	Checkout	2026-03-03T20:12:52.7500519Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+migrate-staging	Checkout	2026-03-03T20:12:52.7527960Z ##[group]Checking out the ref
+migrate-staging	Checkout	2026-03-03T20:12:52.7531875Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+migrate-staging	Checkout	2026-03-03T20:12:52.7583375Z Switched to a new branch 'main'
+migrate-staging	Checkout	2026-03-03T20:12:52.7587137Z branch 'main' set up to track 'origin/main'.
+migrate-staging	Checkout	2026-03-03T20:12:52.7593732Z ##[endgroup]
+migrate-staging	Checkout	2026-03-03T20:12:52.7628635Z [command]/usr/bin/git log -1 --format=%H
+migrate-staging	Checkout	2026-03-03T20:12:52.7652104Z 0f83e53dec9a1dd82867f860f0b57dbed9c1658c
+migrate-staging	Install Supabase CLI	﻿2026-03-03T20:12:52.7845274Z ##[group]Run supabase/setup-cli@v1
+migrate-staging	Install Supabase CLI	2026-03-03T20:12:52.7845829Z with:
+migrate-staging	Install Supabase CLI	2026-03-03T20:12:52.7846193Z   version: latest
+migrate-staging	Install Supabase CLI	2026-03-03T20:12:52.7846578Z ##[endgroup]
+migrate-staging	Install Supabase CLI	2026-03-03T20:12:53.2314633Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/92edd503-96b5-4132-a21b-308758d40f3d -f /home/runner/work/_temp/0d290372-435d-482a-b983-605464203113
+migrate-staging	Login to Supabase	﻿2026-03-03T20:12:53.9581192Z ##[group]Run supabase login --token "***"
+migrate-staging	Login to Supabase	2026-03-03T20:12:53.9582140Z [36;1msupabase login --token "***"[0m
+migrate-staging	Login to Supabase	2026-03-03T20:12:53.9636909Z shell: /usr/bin/bash -e {0}
+migrate-staging	Login to Supabase	2026-03-03T20:12:53.9637252Z env:
+migrate-staging	Login to Supabase	2026-03-03T20:12:53.9637494Z   SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+migrate-staging	Login to Supabase	2026-03-03T20:12:53.9637805Z ##[endgroup]
+migrate-staging	Login to Supabase	2026-03-03T20:12:54.0341376Z You are now logged in. Happy coding!
+migrate-staging	Link STAGING project	﻿2026-03-03T20:12:54.0403134Z ##[group]Run supabase link --project-ref "***"
+migrate-staging	Link STAGING project	2026-03-03T20:12:54.0403696Z [36;1msupabase link --project-ref "***"[0m
+migrate-staging	Link STAGING project	2026-03-03T20:12:54.0453540Z shell: /usr/bin/bash -e {0}
+migrate-staging	Link STAGING project	2026-03-03T20:12:54.0453843Z env:
+migrate-staging	Link STAGING project	2026-03-03T20:12:54.0454093Z   SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+migrate-staging	Link STAGING project	2026-03-03T20:12:54.0454430Z   SUPABASE_NON_INTERACTIVE: true
+migrate-staging	Link STAGING project	2026-03-03T20:12:54.0454694Z ##[endgroup]
+migrate-staging	Link STAGING project	2026-03-03T20:12:56.8360664Z Finished supabase link.
+migrate-staging	Apply migrations to STAGING	﻿2026-03-03T20:12:56.8434258Z ##[group]Run set -euo pipefail
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8434661Z [36;1mset -euo pipefail[0m
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8435236Z [36;1mENCODED_PASSWORD="$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD']))")"[0m
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8435826Z [36;1m[0m
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8436083Z [36;1msupabase db push --include-all --yes \[0m
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8436942Z [36;1m  --db-url "postgresql://postgres.***:${ENCODED_PASSWORD}@aws-0-us-west-2.pooler.supabase.com:5432/postgres"[0m
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8488060Z shell: /usr/bin/bash -e {0}
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8488343Z env:
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8488591Z   SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8488965Z   DB_PASSWORD: ***
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8489230Z   SUPABASE_NON_INTERACTIVE: true
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.8489497Z ##[endgroup]
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:56.9135371Z Connecting to remote database...
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:57.7135394Z Do you want to push these migrations to the remote database?
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:57.7136197Z  • 0002_altus_core_identity.sql
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:57.7136445Z 
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:57.7136535Z  [Y/n] y
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:57.8048767Z Applying migration 0002_altus_core_identity.sql...
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0352594Z NOTICE (42710): extension "pgcrypto" already exists, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0445737Z NOTICE (42P07): relation "assets" already exists, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0448665Z NOTICE (42P07): relation "asset_data_raw" already exists, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0449694Z NOTICE (42P07): relation "asset_specs_reconciled" already exists, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0465316Z NOTICE (00000): trigger "trg_profiles_touch" for relation "public.profiles" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0468340Z NOTICE (00000): trigger "trg_assets_touch" for relation "public.assets" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0496181Z NOTICE (00000): policy "org_select" for relation "public.organizations" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0499444Z NOTICE (00000): policy "profiles_select_self" for relation "public.profiles" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0503537Z NOTICE (00000): policy "profiles_update_self" for relation "public.profiles" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0508799Z NOTICE (00000): policy "org_members_select" for relation "public.organization_members" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.0510459Z NOTICE (00000): policy "assets_select" for relation "public.assets" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1327034Z NOTICE (00000): policy "assets_insert" for relation "public.assets" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1329846Z NOTICE (00000): policy "assets_update" for relation "public.assets" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1331158Z NOTICE (00000): policy "assets_delete" for relation "public.assets" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1332774Z NOTICE (00000): policy "adr_select" for relation "public.asset_data_raw" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1334136Z NOTICE (00000): policy "adr_insert" for relation "public.asset_data_raw" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1335468Z NOTICE (00000): policy "adr_update" for relation "public.asset_data_raw" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1337008Z NOTICE (00000): policy "adr_delete" for relation "public.asset_data_raw" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1338166Z NOTICE (00000): policy "asr_select" for relation "public.asset_specs_reconciled" does not exist, skipping
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1339148Z ERROR: column "organization_id" does not exist (SQLSTATE 42703)
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1339833Z At statement: 46                                               
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1340487Z create policy asr_select                                       
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1341167Z on public.asset_specs_reconciled                               
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1341971Z for select                                                     
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1342637Z using (public.altus_is_org_member(organization_id))            
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1343406Z Try rerunning the command with --debug to troubleshoot the error.
+migrate-staging	Apply migrations to STAGING	2026-03-03T20:12:58.1371969Z ##[error]Process completed with exit code 1.
+migrate-staging	Post Checkout	﻿2026-03-03T20:12:58.1470046Z Post job cleanup.
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2414147Z [command]/usr/bin/git version
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2450880Z git version 2.53.0
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2493656Z Temporarily overriding HOME='/home/runner/work/_temp/8b800ef6-efd3-41ff-8f74-50b997c48a29' before making global git config changes
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2494982Z Adding repository directory to the temporary git global config as a safe directory
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2499366Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/altus-core-backend/altus-core-backend
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2536622Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2569825Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2809309Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2830362Z http.https://github.com/.extraheader
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2842790Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+migrate-staging	Post Checkout	2026-03-03T20:12:58.2873706Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+migrate-staging	Post Checkout	2026-03-03T20:12:58.3107783Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+migrate-staging	Post Checkout	2026-03-03T20:12:58.3140008Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+migrate-staging	Complete job	﻿2026-03-03T20:12:58.3487418Z Cleaning up orphan processes
