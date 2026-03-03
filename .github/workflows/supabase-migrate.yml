@@ -120,6 +120,13 @@ jobs:
           SUPABASE_NON_INTERACTIVE: "true"
         run: supabase link --project-ref "${{ secrets.SUPABASE_STAGING_PROJECT_REF }}"
 
+      - name: Prep STAGING DB
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+        run: |
+          ENCODED_PASSWORD="$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD']))")"
+          psql "postgresql://postgres.${{ secrets.SUPABASE_STAGING_PROJECT_REF }}:${ENCODED_PASSWORD}@aws-0-us-west-2.pooler.supabase.com:5432/postgres" -c "alter table public.asset_specs_reconciled add column if not exists organization_id uuid;" || true
+
       - name: Apply migrations to STAGING
         continue-on-error: true
         env:
