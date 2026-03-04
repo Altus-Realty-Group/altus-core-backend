@@ -1,0 +1,12 @@
+
+# CORE lane hygiene
+*.zip
+*.txt
+*_log.*
+*_run_id.*
+ai*.json
+ai_token*.txt
+token*.txt
+appinsights.json
+azure/functions/**/__pycache__/
+azure/functions/**/.python_packages/
