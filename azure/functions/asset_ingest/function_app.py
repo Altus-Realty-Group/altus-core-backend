@@ -89,10 +89,68 @@ def _insert_supabase_row(table: str, payload: dict[str, Any], config: RuntimeCon
     return data[0]
 
 
+def _delete_supabase_row_by_id(table: str, row_id: str, config: RuntimeConfig) -> None:
+    endpoint = f"{config.supabase_url}/rest/v1/{table}?id=eq.{row_id}"
+    headers = {
+        "apikey": config.supabase_service_role_key,
+        "Authorization": f"Bearer {config.supabase_service_role_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+    resp = requests.delete(endpoint, headers=headers, timeout=30)
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Supabase delete failed for {table} id={row_id}: {resp.status_code} {resp.text}")
+
+
+def _mark_asset_error(asset_id: str, config: RuntimeConfig) -> None:
+    endpoint = f"{config.supabase_url}/rest/v1/assets?id=eq.{asset_id}"
+    headers = {
+        "apikey": config.supabase_service_role_key,
+        "Authorization": f"Bearer {config.supabase_service_role_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+    resp = requests.patch(endpoint, headers=headers, json={"status": "ERROR"}, timeout=30)
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Supabase patch failed for assets id={asset_id}: {resp.status_code} {resp.text}")
+
+
 def _bad_request(message: str) -> func.HttpResponse:
     return func.HttpResponse(
         json.dumps({"ok": False, "error": message}),
         status_code=400,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _internal_error() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": "INGEST_INTERNAL",
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _stage_error(code: str) -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": code,
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
         headers=_build_headers(),
         mimetype="application/json",
     )
@@ -137,34 +195,50 @@ def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
 
         config = _get_config()
 
-        asset_row = _insert_supabase_row(
-            table="assets",
-            payload={
-                "organization_id": organization_id,
-                "asset_type": asset_type,
-                "status": status,
-                "display_name": display_name,
-                "external_ids": {"payload_hash": payload_hash},
-            },
-            config=config,
-        )
+        try:
+            asset_row = _insert_supabase_row(
+                table="assets",
+                payload={
+                    "organization_id": organization_id,
+                    "asset_type": asset_type,
+                    "status": status,
+                    "display_name": display_name,
+                    "external_ids": {"payload_hash": payload_hash},
+                },
+                config=config,
+            )
+        except Exception:
+            logging.exception("INGEST: Supabase assets insert failed")
+            return _stage_error("INGEST_ASSET_INSERT_FAILED")
 
         asset_id = asset_row.get("id")
         if not asset_id:
             raise RuntimeError("assets insert did not return id")
 
-        raw_row = _insert_supabase_row(
-            table="asset_data_raw",
-            payload={
-                "organization_id": organization_id,
-                "asset_id": asset_id,
-                "source": source,
-                "payload": raw_payload,
-                "payload_sha256": payload_hash,
-                "source_record_id": None,
-            },
-            config=config,
-        )
+        try:
+            raw_row = _insert_supabase_row(
+                table="asset_data_raw",
+                payload={
+                    "organization_id": organization_id,
+                    "asset_id": asset_id,
+                    "source": source,
+                    "payload": raw_payload,
+                    "payload_sha256": payload_hash,
+                    "source_record_id": None,
+                },
+                config=config,
+            )
+        except Exception:
+            logging.exception("INGEST: Supabase asset_data_raw insert failed (will compensate)")
+            try:
+                _delete_supabase_row_by_id("assets", str(asset_id), config)
+            except Exception:
+                logging.exception("INGEST: Compensation delete failed (will attempt mark ERROR)")
+                try:
+                    _mark_asset_error(str(asset_id), config)
+                except Exception:
+                    logging.exception("INGEST: Compensation mark ERROR failed")
+            return _stage_error("INGEST_RAW_INSERT_FAILED")
 
         raw_id = raw_row.get("id")
         if not raw_id:
@@ -188,9 +262,4 @@ def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
         return _bad_request(str(exc))
     except Exception:
         logging.exception("Asset ingest failed")
-        return func.HttpResponse(
-            json.dumps({"ok": False, "error": "Internal server error"}),
-            status_code=500,
-            headers=_build_headers(),
-            mimetype="application/json",
-        )
+        return _internal_error()
