@@ -7,7 +7,7 @@ from typing import Any
 
 import azure.functions as func
 import requests
-from azure.identity import ManagedIdentityCredential
+from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
@@ -17,15 +17,27 @@ _ALLOWED_SOURCES = {"CORELOGIC", "MLS", "DOORLOOP", "MANUAL", "OTHER"}
 
 class RuntimeConfig:
     def __init__(self) -> None:
+        env_supabase_url = os.getenv("SUPABASE_URL")
+        env_supabase_service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+        if env_supabase_url and env_supabase_service_role_key:
+            self.supabase_url = env_supabase_url.rstrip("/")
+            self.supabase_service_role_key = env_supabase_service_role_key
+            return
+
         vault_url = os.getenv("KEY_VAULT_URL", "https://altus-core-staging-kv.vault.azure.net/")
-        credential = ManagedIdentityCredential()
-        self._secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        credential = DefaultAzureCredential()
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
 
-        supabase_url_secret_name = os.getenv("SUPABASE_URL_SECRET_NAME", "SUPABASE_URL")
-        supabase_key_secret_name = os.getenv("SUPABASE_SERVICE_ROLE_KEY_SECRET_NAME", "SUPABASE_SERVICE_ROLE_KEY")
+        if env_supabase_url:
+            self.supabase_url = env_supabase_url.rstrip("/")
+        else:
+            self.supabase_url = secret_client.get_secret("SUPABASE-URL").value.rstrip("/")
 
-        self.supabase_url = self._secret_client.get_secret(supabase_url_secret_name).value.rstrip("/")
-        self.supabase_service_role_key = self._secret_client.get_secret(supabase_key_secret_name).value
+        if env_supabase_service_role_key:
+            self.supabase_service_role_key = env_supabase_service_role_key
+        else:
+            self.supabase_service_role_key = secret_client.get_secret("SUPABASE-SERVICE-ROLE-KEY").value
 
 
 _config: RuntimeConfig | None = None
@@ -157,6 +169,7 @@ def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
     except ValueError as exc:
+        logging.exception("Asset ingest validation failed")
         return _bad_request(str(exc))
     except Exception:
         logging.exception("Asset ingest failed")
