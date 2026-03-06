@@ -101,7 +101,8 @@ jobs:
               "status:queued",
               "status:running",
               "status:blocked",
-              "status:proof-ready"
+              "status:proof-ready",
+              "status:closed"
             ];
 
             const agentLabels = {
@@ -109,7 +110,7 @@ jobs:
               "supabase": "agent:supabase",
               "antigravity": "agent:antigravity",
               "replit": "agent:replit",
-              "none": null
+              "none": "agent:none"
             };
 
             const allManagedLabels = [
@@ -129,10 +130,12 @@ jobs:
               "status:running": "0e8a16",
               "status:blocked": "d93f0b",
               "status:proof-ready": "5319e7",
+              "status:closed": "6e7781",
               "agent:vs": "c5def5",
               "agent:supabase": "bfdadc",
               "agent:antigravity": "f9d0c4",
-              "agent:replit": "fef2c0"
+              "agent:replit": "fef2c0",
+              "agent:none": "ededed"
             };
 
             async function ensureLabel(name) {

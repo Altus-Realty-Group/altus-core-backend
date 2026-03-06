@@ -42,7 +42,17 @@ jobs:
             "**/*diff_scope*.txt" \
             "**/*diff_scope*.patch" \
             "**/*raw_curl*" \
-            "**/*raw_sql*"
+            "**/*raw_sql*" \
+            "worker_packet.json" \
+            "worker_packet.txt" \
+            "worker_result.json" \
+            "worker_result.txt" \
+            "worker_handoff.txt" \
+            "**/worker_packet.json" \
+            "**/worker_packet.txt" \
+            "**/worker_result.json" \
+            "**/worker_result.txt" \
+            "**/worker_handoff.txt"
           do
             for file in $pattern; do
               [ -f "$file" ] && files+=("$file")

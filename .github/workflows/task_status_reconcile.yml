@@ -1,0 +1,133 @@
+name: task_status_reconcile
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: issue number to reconcile
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reconcile status labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labelColors = {
+              "status:queued": "fbca04",
+              "status:running": "0e8a16",
+              "status:blocked": "d93f0b",
+              "status:proof-ready": "5319e7",
+              "status:closed": "6e7781"
+            };
+
+            const statusLabels = [
+              "status:queued",
+              "status:running",
+              "status:blocked",
+              "status:proof-ready",
+              "status:closed"
+            ];
+
+            const precedence = [
+              "status:closed",
+              "status:proof-ready",
+              "status:running",
+              "status:blocked",
+              "status:queued"
+            ];
+
+            async function ensureLabel(name) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                    color: labelColors[name] || "ededed"
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            for (const label of statusLabels) {
+              await ensureLabel(label);
+            }
+
+            let issueNumber;
+            if (context.eventName === "workflow_dispatch") {
+              issueNumber = Number(core.getInput("issue_number").trim());
+            } else {
+              issueNumber = context.payload.issue.number;
+            }
+
+            if (!issueNumber || Number.isNaN(issueNumber)) {
+              core.setFailed("issue_number is required");
+              return;
+            }
+
+            const current = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            const currentNames = current.data.map(l => l.name);
+            const found = currentNames.filter(name => statusLabels.includes(name));
+
+            let target = "status:queued";
+            if (found.length > 0) {
+              target = precedence.find(label => found.includes(label)) || "status:queued";
+            }
+
+            for (const name of found) {
+              if (name !== target) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name
+                }).catch(() => {});
+              }
+            }
+
+            if (!currentNames.includes(target)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: [target]
+              });
+            }
+
+            const comment = [
+              "<!-- autonomy-status-reconcile -->",
+              "## Status Reconcile",
+              `issue_number: ${issueNumber}`,
+              `status_before: ${found.length ? found.join(", ") : "(none)"}`,
+              `status_after: ${target}`
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });

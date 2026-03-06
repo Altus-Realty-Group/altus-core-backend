@@ -8,6 +8,8 @@ What it does:
 - structured task intake through GitHub issue forms
 - normalized lane and agent routing labels
 - workflow_dispatch manual task injection
+- worker execution bridge claim/result packetization
+- status reconciliation for single status label enforcement
 - proof artifact collection
 - OIDC validation workflow for Azure posture
 
@@ -27,12 +29,15 @@ What it does **not** do yet:
    - zero or one `agent:*` label
 4. Router comments back a normalized packet.
 5. Execution proceeds outside the router using the assigned worker.
-6. Proof artifacts are collected by `proofpack_collect.yml`.
-7. Status progresses from:
+6. `worker_bridge.yml` emits packet/result/handoff artifacts and comments.
+7. `task_status_reconcile.yml` enforces exactly one `status:*` label.
+8. Proof artifacts are collected by `proofpack_collect.yml`.
+9. Status progresses from:
    - `status:queued`
    - `status:running`
    - `status:blocked`
    - `status:proof-ready`
+   - `status:closed`
 
 ## Labels
 
@@ -49,19 +54,23 @@ What it does **not** do yet:
 - `status:running`
 - `status:blocked`
 - `status:proof-ready`
+- `status:closed`
 
 ### Agent Labels
 - `agent:vs`
 - `agent:supabase`
 - `agent:antigravity`
 - `agent:replit`
+- `agent:none`
 
 ## Routing Rules
 
 - `lane` is sourced from the issue form or workflow_dispatch input.
 - `execution_agent` becomes an `agent:*` label when not `none`.
+- `execution_agent: none` maps to `agent:none`.
 - Router does not execute work.
 - Router only normalizes labels and comments back the packet.
+- Worker execution bridge performs claim/result packet comments and artifacts.
 
 ## Proof Pack Artifact Rules
 
