@@ -31,7 +31,7 @@ The bridge is additive and does not replace deploy workflows.
 
 ## Contracts
 
-### Workflow: `worker_bridge.yml`
+### Workflow: worker_bridge.yml
 
 Action modes:
 - `claim`
@@ -91,7 +91,7 @@ Result contract fields:
 - `blocker_reason`
 - `next_required_action`
 
-### Workflow: `task_status_reconcile.yml`
+### Workflow: task_status_reconcile.yml
 
 Rules:
 - enforce exactly one status label
@@ -101,12 +101,12 @@ Rules:
 ## Dry-Run (Manual)
 
 1. Open a structured autonomous task issue.
-2. Run `worker_bridge.yml` with `action_mode=claim` and `dry_run=true`.
+2. Run worker_bridge.yml with `action_mode=claim` and `dry_run=true`.
 3. Confirm bridge applies `status:running` and emits `worker_packet.*` plus `<!-- autonomy-worker-packet -->`.
 4. Confirm honesty statement is explicit when no live worker exists (`execution_agent=none` / `agent:none`).
-5. Run `worker_bridge.yml` with `action_mode=result` and selected `outcome`.
+5. Run worker_bridge.yml with `action_mode=result` and selected `outcome`.
 6. Verify `worker_result.*`, `worker_handoff.txt`, and marker comments are emitted.
-7. Run `task_status_reconcile.yml` for the issue.
+7. Run task_status_reconcile.yml for the issue.
 8. Verify one and only one status label remains.
 
 Dry-run behavior:
