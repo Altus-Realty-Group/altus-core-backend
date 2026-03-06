@@ -1,62 +1,68 @@
 name: worker_bridge
 
 on:
+  issues:
+    types: [labeled]
   workflow_dispatch:
     inputs:
-      mode:
-        description: worker bridge mode
+      issue_number:
+        description: target issue number
+        required: true
+        type: string
+      action_mode:
+        description: claim or result
         required: true
         type: choice
         options:
           - claim
           - result
-      issue_number:
-        description: target issue number
+      dry_run:
+        description: dry-run mode
         required: true
-        type: string
-      worker:
-        description: worker identity
-        required: true
-        type: choice
-        options:
-          - vs
-          - supabase
-          - antigravity
-          - replit
-          - none
-      result_status:
-        description: result status label suffix
+        default: false
+        type: boolean
+      outcome:
+        description: result outcome
         required: false
-        default: proof-ready
+        default: success
         type: choice
         options:
-          - queued
-          - running
+          - success
           - blocked
+          - failed
           - proof-ready
-          - closed
-      result_summary:
-        description: summary for result mode
+      summary:
+        description: result summary
         required: false
         default: ""
         type: string
-      evidence_paths:
-        description: evidence paths (newline separated)
-        required: false
-        default: ""
-        type: string
-      pr_number:
-        description: optional PR number
+      changed_files:
+        description: changed files (newline or comma separated)
         required: false
         default: ""
         type: string
       commit_sha:
-        description: optional commit SHA
+        description: commit SHA
         required: false
         default: ""
         type: string
-      handoff_note:
-        description: optional handoff note
+      pr_url:
+        description: PR URL
+        required: false
+        default: ""
+        type: string
+      proof_artifacts:
+        description: proof artifacts (newline or comma separated)
+        required: false
+        default: ""
+        type: string
+      blocker_reason:
+        description: blocker reason
+        required: false
+        default: ""
+        type: string
+      next_required_action:
+        description: next required action
         required: false
         default: ""
         type: string
@@ -69,42 +75,25 @@ jobs:
   bridge:
     runs-on: ubuntu-latest
     steps:
-      - name: Generate worker artifacts and comments
+      - name: Execute claim/result bridge
         uses: actions/github-script@v7
         env:
-          MODE: ${{ inputs.mode }}
-          ISSUE_NUMBER: ${{ inputs.issue_number }}
-          WORKER: ${{ inputs.worker }}
-          RESULT_STATUS: ${{ inputs.result_status }}
-          RESULT_SUMMARY: ${{ inputs.result_summary }}
-          EVIDENCE_PATHS: ${{ inputs.evidence_paths }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-          COMMIT_SHA: ${{ inputs.commit_sha }}
-          HANDOFF_NOTE: ${{ inputs.handoff_note }}
+          INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
+          INPUT_ACTION_MODE: ${{ inputs.action_mode }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_OUTCOME: ${{ inputs.outcome }}
+          INPUT_SUMMARY: ${{ inputs.summary }}
+          INPUT_CHANGED_FILES: ${{ inputs.changed_files }}
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+          INPUT_PR_URL: ${{ inputs.pr_url }}
+          INPUT_PROOF_ARTIFACTS: ${{ inputs.proof_artifacts }}
+          INPUT_BLOCKER_REASON: ${{ inputs.blocker_reason }}
+          INPUT_NEXT_REQUIRED_ACTION: ${{ inputs.next_required_action }}
         with:
           script: |
             const fs = require('fs');
 
-            const mode = (process.env.MODE || '').trim().toLowerCase();
-            const issueNumber = Number((process.env.ISSUE_NUMBER || '').trim());
-            const worker = (process.env.WORKER || '').trim().toLowerCase();
-            const resultStatus = (process.env.RESULT_STATUS || 'proof-ready').trim().toLowerCase();
-            const resultSummary = (process.env.RESULT_SUMMARY || '').trim();
-            const evidencePaths = (process.env.EVIDENCE_PATHS || '').trim();
-            const prNumber = (process.env.PR_NUMBER || '').trim();
-            const commitSha = (process.env.COMMIT_SHA || '').trim();
-            const handoffNote = (process.env.HANDOFF_NOTE || '').trim();
-
-            if (!['claim', 'result'].includes(mode)) {
-              core.setFailed('mode must be claim or result');
-              return;
-            }
-            if (!issueNumber || Number.isNaN(issueNumber)) {
-              core.setFailed('issue_number must be numeric');
-              return;
-            }
-
-            const statusLabels = [
+            const STATUS_LABELS = [
               'status:queued',
               'status:running',
               'status:blocked',
@@ -112,129 +101,68 @@ jobs:
               'status:closed'
             ];
 
-            const agentLabels = {
-              vs: 'agent:vs',
-              supabase: 'agent:supabase',
-              antigravity: 'agent:antigravity',
-              replit: 'agent:replit',
-              none: 'agent:none'
-            };
-
-            const issue = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber
-            });
-
-            const body = issue.data.body || '';
-            const labelsNow = issue.data.labels.map(l => l.name);
-
             function section(markdown, key) {
+              if (!markdown) return '';
               const re = new RegExp(`###\\s+${key}\\s*\\n+([\\s\\S]*?)(?=\\n###\\s+|$)`, 'i');
               const match = markdown.match(re);
               return match ? match[1].trim() : '';
             }
 
-            const packet = {
-              repository: `${context.repo.owner}/${context.repo.repo}`,
-              issue_number: issueNumber,
-              issue_title: issue.data.title,
-              mode,
-              worker,
-              lane: section(body, 'lane'),
-              task_type: section(body, 'task_type'),
-              objective: section(body, 'objective'),
-              target_files: section(body, 'target_files'),
-              acceptance_criteria: section(body, 'acceptance_criteria'),
-              proof_required: section(body, 'proof_required'),
-              environment: section(body, 'environment'),
-              priority: section(body, 'priority'),
-              execution_agent: section(body, 'execution_agent'),
-              observed_labels: labelsNow,
-              generated_at: new Date().toISOString()
-            };
+            function normalizeList(value) {
+              return (value || '')
+                .split(/\r?\n|,/)
+                .map(item => item.trim())
+                .filter(Boolean);
+            }
 
-            const result = {
-              repository: `${context.repo.owner}/${context.repo.repo}`,
-              issue_number: issueNumber,
-              mode,
-              worker,
-              result_status: `status:${resultStatus}`,
-              result_summary: resultSummary,
-              evidence_paths,
-              pr_number: prNumber,
-              commit_sha: commitSha,
-              handoff_note: handoffNote,
-              generated_at: new Date().toISOString()
-            };
+            function packetToText(packet) {
+              return [
+                `issue_number=${packet.issue_number}`,
+                `issue_title=${packet.issue_title}`,
+                `lane=${packet.lane}`,
+                `task_type=${packet.task_type}`,
+                `objective=${packet.objective}`,
+                `target_files=${packet.target_files}`,
+                `acceptance_criteria=${packet.acceptance_criteria}`,
+                `proof_required=${packet.proof_required}`,
+                `environment=${packet.environment}`,
+                `priority=${packet.priority}`,
+                `execution_agent=${packet.execution_agent}`,
+                `current_labels=${packet.current_labels.join(',')}`,
+                `requested_by=${packet.requested_by}`,
+                `commit_branch=${packet.commit_branch}`,
+                `expected_result_mode=${packet.expected_result_mode}`,
+                `proofpack_expectation=${packet.proofpack_expectation}`
+              ].join('\n');
+            }
 
-            const handoff = {
-              repository: `${context.repo.owner}/${context.repo.repo}`,
-              issue_number: issueNumber,
-              worker,
-              pr_number: prNumber,
-              commit_sha: commitSha,
-              handoff_note: handoffNote,
-              generated_at: new Date().toISOString()
-            };
+            function resultToText(result) {
+              return [
+                `issue_number=${result.issue_number}`,
+                `outcome=${result.outcome}`,
+                `summary=${result.summary}`,
+                `changed_files=${result.changed_files.join(',')}`,
+                `commit_sha=${result.commit_sha}`,
+                `pr_url=${result.pr_url}`,
+                `proof_artifacts=${result.proof_artifacts.join(',')}`,
+                `blocker_reason=${result.blocker_reason}`,
+                `next_required_action=${result.next_required_action}`
+              ].join('\n');
+            }
 
-            const packetTxt = [
-              'worker_bridge',
-              `mode=${mode}`,
-              `issue_number=${issueNumber}`,
-              `worker=${worker}`,
-              `lane=${packet.lane}`,
-              `task_type=${packet.task_type}`,
-              `objective=${packet.objective}`,
-              `target_files=${packet.target_files}`,
-              `acceptance_criteria=${packet.acceptance_criteria}`,
-              `proof_required=${packet.proof_required}`,
-              `environment=${packet.environment}`,
-              `priority=${packet.priority}`,
-              `execution_agent=${packet.execution_agent}`
-            ].join('\n');
-
-            const resultTxt = [
-              'worker_bridge_result',
-              `mode=${mode}`,
-              `issue_number=${issueNumber}`,
-              `worker=${worker}`,
-              `result_status=status:${resultStatus}`,
-              `result_summary=${resultSummary}`,
-              `evidence_paths=${evidencePaths}`,
-              `pr_number=${prNumber}`,
-              `commit_sha=${commitSha}`,
-              `handoff_note=${handoffNote}`
-            ].join('\n');
-
-            const handoffTxt = [
-              'worker_bridge_handoff',
-              `issue_number=${issueNumber}`,
-              `worker=${worker}`,
-              `pr_number=${prNumber}`,
-              `commit_sha=${commitSha}`,
-              `handoff_note=${handoffNote}`
-            ].join('\n');
-
-            fs.writeFileSync('worker_packet.json', JSON.stringify(packet, null, 2));
-            fs.writeFileSync('worker_packet.txt', packetTxt + '\n');
-            fs.writeFileSync('worker_result.json', JSON.stringify(result, null, 2));
-            fs.writeFileSync('worker_result.txt', resultTxt + '\n');
-            fs.writeFileSync('worker_handoff.txt', handoffTxt + '\n');
-
-            async function listIssueLabels() {
-              const list = await github.rest.issues.listLabelsOnIssue({
+            async function listIssueLabels(issueNumber) {
+              const response = await github.rest.issues.listLabelsOnIssue({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber
               });
-              return list.data.map(l => l.name);
+              return response.data.map(label => label.name);
             }
 
-            async function setSingleStatus(nextStatus) {
-              const current = await listIssueLabels();
+            async function setSingleStatus(issueNumber, nextStatus) {
+              const current = await listIssueLabels(issueNumber);
               for (const name of current) {
-                if (statusLabels.includes(name) && name !== nextStatus) {
+                if (STATUS_LABELS.includes(name) && name !== nextStatus) {
                   await github.rest.issues.removeLabel({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
@@ -251,23 +179,96 @@ jobs:
               });
             }
 
-            if (mode === 'claim') {
-              await setSingleStatus('status:running');
-              if (agentLabels[worker]) {
-                await github.rest.issues.addLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  labels: [agentLabels[worker]]
-                });
+            const issueNumber = context.eventName === 'issues'
+              ? context.payload.issue.number
+              : Number((process.env.INPUT_ISSUE_NUMBER || '').trim());
+
+            if (!issueNumber || Number.isNaN(issueNumber)) {
+              core.setFailed('issue_number must be numeric');
+              return;
+            }
+
+            const actionMode = context.eventName === 'issues'
+              ? 'claim'
+              : (process.env.INPUT_ACTION_MODE || '').trim().toLowerCase();
+
+            if (!['claim', 'result'].includes(actionMode)) {
+              core.setFailed('action_mode must be claim or result');
+              return;
+            }
+
+            const dryRun = (String(process.env.INPUT_DRY_RUN || 'false').toLowerCase() === 'true');
+            const outcome = (process.env.INPUT_OUTCOME || 'success').trim().toLowerCase();
+
+            if (!['success', 'blocked', 'failed', 'proof-ready'].includes(outcome)) {
+              core.setFailed('outcome must be success|blocked|failed|proof-ready');
+              return;
+            }
+
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            const issueBody = issue.data.body || '';
+            const currentLabels = issue.data.labels.map(label => label.name);
+            const laneLabels = currentLabels.filter(name => name.startsWith('lane:'));
+            const agentLabels = currentLabels.filter(name => name.startsWith('agent:'));
+            const statusLabels = currentLabels.filter(name => STATUS_LABELS.includes(name));
+
+            const executionAgent = section(issueBody, 'execution_agent');
+            const noLiveWorker = executionAgent === 'none' || agentLabels.includes('agent:none');
+            const honestyNote = noLiveWorker
+              ? 'No live worker exists for execution_agent=none; bridge emits truthful packet/result records only.'
+              : (dryRun ? 'Dry-run enabled; bridge emitted records without performing code execution.' : 'Live worker path expected.');
+
+            if (actionMode === 'claim') {
+              if (laneLabels.length !== 1) {
+                core.setFailed(`claim requires exactly one lane:* label; found ${laneLabels.length}`);
+                return;
               }
+              if (agentLabels.length !== 1) {
+                core.setFailed(`claim requires exactly one agent:* label; found ${agentLabels.length}`);
+                return;
+              }
+              if (!(statusLabels.includes('status:queued') || statusLabels.includes('status:blocked'))) {
+                core.setFailed('claim requires current status:queued or status:blocked');
+                return;
+              }
+
+              await setSingleStatus(issueNumber, 'status:running');
+              const labelsAfterStatus = await listIssueLabels(issueNumber);
+
+              const packet = {
+                issue_number: issueNumber,
+                issue_title: issue.data.title,
+                lane: laneLabels[0],
+                task_type: section(issueBody, 'task_type'),
+                objective: section(issueBody, 'objective'),
+                target_files: section(issueBody, 'target_files'),
+                acceptance_criteria: section(issueBody, 'acceptance_criteria'),
+                proof_required: section(issueBody, 'proof_required'),
+                environment: section(issueBody, 'environment'),
+                priority: section(issueBody, 'priority'),
+                execution_agent: executionAgent,
+                current_labels: labelsAfterStatus,
+                requested_by: issue.data.user?.login || '',
+                commit_branch: process.env.GITHUB_REF_NAME || '',
+                expected_result_mode: 'result',
+                proofpack_expectation: 'docs/proofpacks/<YYYY-MM-DD>_be-core_autonomy-02',
+                dry_run: dryRun,
+                honesty_note: honestyNote
+              };
+
+              fs.writeFileSync('worker_packet.json', JSON.stringify(packet, null, 2));
+              fs.writeFileSync('worker_packet.txt', packetToText(packet) + '\n');
 
               const packetComment = [
                 '<!-- autonomy-worker-packet -->',
                 '## Worker Packet',
-                `mode: ${mode}`,
-                `worker: ${worker}`,
-                `issue_number: ${issueNumber}`,
+                `issue_number: ${packet.issue_number}`,
+                `issue_title: ${packet.issue_title}`,
                 `lane: ${packet.lane}`,
                 `task_type: ${packet.task_type}`,
                 `objective: ${packet.objective}`,
@@ -276,7 +277,14 @@ jobs:
                 `proof_required: ${packet.proof_required}`,
                 `environment: ${packet.environment}`,
                 `priority: ${packet.priority}`,
-                `execution_agent: ${packet.execution_agent}`
+                `execution_agent: ${packet.execution_agent}`,
+                `current_labels: ${packet.current_labels.join(', ')}`,
+                `requested_by: ${packet.requested_by}`,
+                `commit_branch: ${packet.commit_branch}`,
+                `expected_result_mode: ${packet.expected_result_mode}`,
+                `proofpack_expectation: ${packet.proofpack_expectation}`,
+                `dry_run: ${packet.dry_run}`,
+                `honesty_note: ${packet.honesty_note}`
               ].join('\n');
 
               await github.rest.issues.createComment({
@@ -285,37 +293,90 @@ jobs:
                 issue_number: issueNumber,
                 body: packetComment
               });
+              return;
             }
 
-            if (mode === 'result') {
-              await setSingleStatus(`status:${resultStatus}`);
+            const mappedStatus = {
+              success: 'status:proof-ready',
+              'proof-ready': 'status:proof-ready',
+              blocked: 'status:blocked',
+              failed: 'status:blocked'
+            }[outcome];
 
-              const resultComment = [
-                '<!-- autonomy-worker-result -->',
-                '## Worker Result',
-                `mode: ${mode}`,
-                `worker: ${worker}`,
-                `issue_number: ${issueNumber}`,
-                `result_status: status:${resultStatus}`,
-                `result_summary: ${resultSummary}`,
-                `evidence_paths: ${evidencePaths}`
-              ].join('\n');
+            await setSingleStatus(issueNumber, mappedStatus);
 
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                body: resultComment
-              });
+            const result = {
+              issue_number: issueNumber,
+              outcome,
+              summary: (process.env.INPUT_SUMMARY || '').trim(),
+              changed_files: normalizeList(process.env.INPUT_CHANGED_FILES || ''),
+              commit_sha: (process.env.INPUT_COMMIT_SHA || '').trim(),
+              pr_url: (process.env.INPUT_PR_URL || '').trim(),
+              proof_artifacts: normalizeList(process.env.INPUT_PROOF_ARTIFACTS || ''),
+              blocker_reason: (process.env.INPUT_BLOCKER_REASON || '').trim(),
+              next_required_action: (process.env.INPUT_NEXT_REQUIRED_ACTION || '').trim(),
+              dry_run: dryRun,
+              honesty_note: honestyNote
+            };
 
+            fs.writeFileSync('worker_result.json', JSON.stringify(result, null, 2));
+            fs.writeFileSync('worker_result.txt', resultToText(result) + '\n');
+
+            const handoff = {
+              issue_number: issueNumber,
+              outcome: result.outcome,
+              summary: result.summary,
+              changed_files: result.changed_files,
+              commit_sha: result.commit_sha,
+              pr_url: result.pr_url,
+              proof_artifacts: result.proof_artifacts,
+              blocker_reason: result.blocker_reason,
+              next_required_action: result.next_required_action,
+              dry_run: result.dry_run,
+              honesty_note: result.honesty_note
+            };
+
+            fs.writeFileSync('worker_handoff.txt', JSON.stringify(handoff, null, 2) + '\n');
+
+            const resultComment = [
+              '<!-- autonomy-worker-result -->',
+              '## Worker Result',
+              `issue_number: ${result.issue_number}`,
+              `outcome: ${result.outcome}`,
+              `summary: ${result.summary}`,
+              `changed_files: ${result.changed_files.join(', ')}`,
+              `commit_sha: ${result.commit_sha}`,
+              `pr_url: ${result.pr_url}`,
+              `proof_artifacts: ${result.proof_artifacts.join(', ')}`,
+              `blocker_reason: ${result.blocker_reason}`,
+              `next_required_action: ${result.next_required_action}`,
+              `dry_run: ${result.dry_run}`,
+              `honesty_note: ${result.honesty_note}`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: resultComment
+            });
+
+            const shouldPostHandoff = result.commit_sha || result.pr_url || result.changed_files.length > 0 || result.proof_artifacts.length > 0;
+            if (shouldPostHandoff) {
               const handoffComment = [
                 '<!-- autonomy-pr-handoff -->',
                 '## PR / Commit Handoff',
-                `worker: ${worker}`,
-                `issue_number: ${issueNumber}`,
-                `pr_number: ${prNumber}`,
-                `commit_sha: ${commitSha}`,
-                `handoff_note: ${handoffNote}`
+                `issue_number: ${handoff.issue_number}`,
+                `outcome: ${handoff.outcome}`,
+                `summary: ${handoff.summary}`,
+                `changed_files: ${handoff.changed_files.join(', ')}`,
+                `commit_sha: ${handoff.commit_sha}`,
+                `pr_url: ${handoff.pr_url}`,
+                `proof_artifacts: ${handoff.proof_artifacts.join(', ')}`,
+                `blocker_reason: ${handoff.blocker_reason}`,
+                `next_required_action: ${handoff.next_required_action}`,
+                `dry_run: ${handoff.dry_run}`,
+                `honesty_note: ${handoff.honesty_note}`
               ].join('\n');
 
               await github.rest.issues.createComment({
