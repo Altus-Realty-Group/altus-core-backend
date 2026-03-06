@@ -31,7 +31,7 @@ The bridge is additive and does not replace deploy workflows.
 
 ## Contracts
 
-### Workflow: `.github/workflows/worker_bridge.yml`
+### Workflow: `.github/workflows/.github/workflows/worker_bridge.yml`
 
 Action modes:
 - `claim`
@@ -91,7 +91,7 @@ Result contract fields:
 - `blocker_reason`
 - `next_required_action`
 
-### Workflow: `.github/workflows/task_status_reconcile.yml`
+### Workflow: `.github/workflows/.github/workflows/task_status_reconcile.yml`
 
 Rules:
 - enforce exactly one status label
@@ -101,12 +101,12 @@ Rules:
 ## Dry-Run (Manual)
 
 1. Open a structured autonomous task issue.
-2. Run `worker_bridge.yml` with `action_mode=claim` and `dry_run=true`.
+2. Run `.github/workflows/worker_bridge.yml` with `action_mode=claim` and `dry_run=true`.
 3. Confirm bridge applies `status:running` and emits `worker_packet.*` plus `<!-- autonomy-worker-packet -->`.
 4. Confirm honesty statement is explicit when no live worker exists (`execution_agent=none` / `agent:none`).
-5. Run `worker_bridge.yml` with `action_mode=result` and selected `outcome`.
+5. Run `.github/workflows/worker_bridge.yml` with `action_mode=result` and selected `outcome`.
 6. Verify `worker_result.*`, `worker_handoff.txt`, and marker comments are emitted.
-7. Run `task_status_reconcile.yml` for the issue.
+7. Run `.github/workflows/task_status_reconcile.yml` for the issue.
 8. Verify one and only one status label remains.
 
 Dry-run behavior:
@@ -127,9 +127,9 @@ infra
 Install worker bridge and status reconcile workflows.
 
 ### target_files
-.github/workflows/worker_bridge.yml
-.github/workflows/task_status_reconcile.yml
-docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
+.github/workflows/.github/workflows/worker_bridge.yml
+.github/workflows/.github/workflows/task_status_reconcile.yml
+docs/governance/docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
 
 ### acceptance_criteria
 Bridge emits packet/result/handoff artifacts.
@@ -161,9 +161,9 @@ issue_title: [AUTO] Install worker bridge and status reconcile workflows.
 lane: be-core
 task_type: infra
 objective: Install worker bridge and status reconcile workflows.
-target_files: .github/workflows/worker_bridge.yml
-.github/workflows/task_status_reconcile.yml
-docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
+target_files: .github/workflows/.github/workflows/worker_bridge.yml
+.github/workflows/.github/workflows/task_status_reconcile.yml
+docs/governance/docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
 acceptance_criteria: Bridge emits packet/result/handoff artifacts.
 Reconcile enforces single status label.
 proof_required: A-E
@@ -183,7 +183,7 @@ proofpack_expectation: docs/proofpacks/<YYYY-MM-DD>_be-core_autonomy-02
 issue_number: 123
 outcome: success
 summary: AUTONOMY-02A corrected worker bridge contract drift.
-changed_files: .github/workflows/worker_bridge.yml, .github/workflows/task_status_reconcile.yml, docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
+changed_files: .github/workflows/.github/workflows/worker_bridge.yml, .github/workflows/.github/workflows/task_status_reconcile.yml, docs/governance/docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
 commit_sha: abcdef1234567890
 pr_url: https://github.com/Altus-Realty-Group/altus-core-backend/pull/456
 proof_artifacts: docs/proofpacks/2026-03-06_be-core_autonomy-02/AUTONOMY02A_CORRECTION_RAW.txt
@@ -197,7 +197,7 @@ next_required_action: BE-Core review and close if accepted.
 issue_number: 123
 outcome: success
 summary: AUTONOMY-02A corrected worker bridge contract drift.
-changed_files: .github/workflows/worker_bridge.yml, .github/workflows/task_status_reconcile.yml, docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
+changed_files: .github/workflows/.github/workflows/worker_bridge.yml, .github/workflows/.github/workflows/task_status_reconcile.yml, docs/governance/docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
 commit_sha: abcdef1234567890
 pr_url: https://github.com/Altus-Realty-Group/altus-core-backend/pull/456
 proof_artifacts: docs/proofpacks/2026-03-06_be-core_autonomy-02/AUTONOMY02A_CORRECTION_RAW.txt
