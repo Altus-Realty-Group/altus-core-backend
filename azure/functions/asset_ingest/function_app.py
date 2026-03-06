@@ -115,6 +115,50 @@ def _mark_asset_error(asset_id: str, config: RuntimeConfig) -> None:
         raise RuntimeError(f"Supabase patch failed for assets id={asset_id}: {resp.status_code} {resp.text}")
 
 
+def _supabase_get_rows(table: str, params: dict[str, str], config: RuntimeConfig) -> list[dict[str, Any]]:
+    endpoint = f"{config.supabase_url}/rest/v1/{table}"
+    headers = {
+        "apikey": config.supabase_service_role_key,
+        "Authorization": f"Bearer {config.supabase_service_role_key}",
+    }
+    response = requests.get(endpoint, headers=headers, params=params, timeout=30)
+    if response.status_code >= 400:
+        raise RuntimeError(f"Supabase select failed for {table}: {response.status_code} {response.text}")
+
+    data = response.json()
+    if not isinstance(data, list):
+        raise RuntimeError(f"Supabase select returned non-list for {table}")
+    return data
+
+
+def _not_found(code: str, message: str) -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": code,
+                "error": message,
+                "status": 404,
+            }
+        ),
+        status_code=404,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _require_org_id(req: func.HttpRequest) -> tuple[str | None, func.HttpResponse | None]:
+    org_id_raw = req.headers.get("x-altus-org-id")
+    if not org_id_raw:
+        return None, _bad_request("Missing required header: x-altus-org-id")
+
+    try:
+        organization_id = str(uuid.UUID(org_id_raw))
+        return organization_id, None
+    except ValueError:
+        return None, _bad_request("x-altus-org-id must be a valid UUID")
+
+
 def _bad_request(message: str) -> func.HttpResponse:
     return func.HttpResponse(
         json.dumps({"ok": False, "error": message}),
@@ -154,6 +198,146 @@ def _stage_error(code: str) -> func.HttpResponse:
         headers=_build_headers(),
         mimetype="application/json",
     )
+
+
+@app.route(route="assets", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def assets_list(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        limit_raw = req.params.get("limit", "50")
+        offset_raw = req.params.get("offset", "0")
+
+        try:
+            limit = int(limit_raw)
+            offset = int(offset_raw)
+        except ValueError:
+            return _bad_request("limit and offset must be integers")
+
+        if limit < 1 or limit > 200:
+            return _bad_request("limit must be between 1 and 200")
+        if offset < 0:
+            return _bad_request("offset must be >= 0")
+
+        params: dict[str, str] = {
+            "select": "*",
+            "organization_id": f"eq.{organization_id}",
+            "order": "created_at.desc",
+            "limit": str(limit),
+            "offset": str(offset),
+        }
+
+        status_value = req.params.get("status")
+        if status_value:
+            params["status"] = f"eq.{status_value}"
+
+        asset_type_value = req.params.get("asset_type")
+        if asset_type_value:
+            params["asset_type"] = f"eq.{asset_type_value}"
+
+        query_text = req.params.get("q")
+        if query_text:
+            safe_query = query_text.replace("*", "")
+            params["or"] = f"(display_name.ilike.*{safe_query}*,name.ilike.*{safe_query}*)"
+
+        config = _get_config()
+        items = _supabase_get_rows("assets", params, config)
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "items": items,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset list failed")
+        return _internal_error()
+
+
+@app.route(route="assets/{asset_id}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def asset_detail(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        asset_id = req.route_params.get("asset_id")
+        if not asset_id:
+            return _bad_request("asset_id is required")
+
+        try:
+            normalized_asset_id = str(uuid.UUID(asset_id))
+        except ValueError:
+            return _bad_request("asset_id must be a valid UUID")
+
+        config = _get_config()
+        assets = _supabase_get_rows(
+            "assets",
+            {
+                "select": "*",
+                "id": f"eq.{normalized_asset_id}",
+                "organization_id": f"eq.{organization_id}",
+                "limit": "1",
+            },
+            config,
+        )
+
+        if not assets:
+            return _not_found("ASSET_NOT_FOUND", "Asset not found")
+
+        latest_raw: dict[str, Any] | None = None
+        raw_queries = [
+            {
+                "select": "*",
+                "asset_id": f"eq.{normalized_asset_id}",
+                "order": "created_at.desc",
+                "limit": "1",
+            },
+            {
+                "select": "*",
+                "asset_id": f"eq.{normalized_asset_id}",
+                "order": "fetched_at.desc",
+                "limit": "1",
+            },
+            {
+                "select": "*",
+                "asset_id": f"eq.{normalized_asset_id}",
+                "order": "id.desc",
+                "limit": "1",
+            },
+        ]
+        for raw_query in raw_queries:
+            try:
+                raw_rows = _supabase_get_rows("asset_data_raw", raw_query, config)
+                latest_raw = raw_rows[0] if raw_rows else None
+                break
+            except Exception:
+                continue
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "asset": assets[0],
+                    "latest_raw": latest_raw,
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset detail failed")
+        return _internal_error()
 
 
 @app.route(route="assets/ingest", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
