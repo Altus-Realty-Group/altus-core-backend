@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 import azure.functions as func
@@ -190,6 +191,22 @@ def _stage_error(code: str) -> func.HttpResponse:
             {
                 "ok": False,
                 "code": code,
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _asset_enrich_internal_error() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": "ASSET_ENRICH_INTERNAL",
                 "error": "Internal server error",
                 "status": 500,
             }
@@ -430,9 +447,82 @@ def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
         except ValueError:
             return _bad_request("x-altus-org-id must be a valid UUID")
 
-        body = req.get_json()
+        try:
+            body = req.get_json()
+        except ValueError:
+            return _bad_request("Invalid payload")
+
         if not isinstance(body, dict):
-            return _bad_request("Request body must be a JSON object")
+            return _bad_request("Invalid payload")
+
+        config = _get_config()
+
+        asset_id_candidate = body.get("asset_id")
+        if asset_id_candidate:
+            try:
+                enrichment_asset_id = str(uuid.UUID(str(asset_id_candidate)))
+            except ValueError:
+                return _bad_request("Invalid payload")
+
+            source_value = body.get("source") or "MANUAL"
+            if not isinstance(source_value, str) or not source_value.strip():
+                return _bad_request("Invalid payload")
+
+            enrichment_payload = body.get("raw", body)
+
+            try:
+                existing_assets = _supabase_get_rows(
+                    "assets",
+                    {
+                        "select": "id",
+                        "id": f"eq.{enrichment_asset_id}",
+                        "organization_id": f"eq.{organization_id}",
+                        "limit": "1",
+                    },
+                    config,
+                )
+            except Exception:
+                logging.exception("ASSET_ENRICH: asset existence check failed")
+                return _asset_enrich_internal_error()
+
+            if not existing_assets:
+                return func.HttpResponse(
+                    json.dumps({"ok": False, "error": "Asset not found"}),
+                    status_code=404,
+                    headers=_build_headers(),
+                    mimetype="application/json",
+                )
+
+            raw_record_id = str(uuid.uuid4())
+            fetched_at = datetime.now(timezone.utc).isoformat()
+            try:
+                _insert_supabase_row(
+                    table="asset_data_raw",
+                    payload={
+                        "id": raw_record_id,
+                        "asset_id": enrichment_asset_id,
+                        "source": source_value,
+                        "payload_jsonb": enrichment_payload,
+                        "fetched_at": fetched_at,
+                    },
+                    config=config,
+                )
+            except Exception:
+                logging.exception("ASSET_ENRICH: asset_data_raw insert failed")
+                return _asset_enrich_internal_error()
+
+            return func.HttpResponse(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "asset_id": enrichment_asset_id,
+                        "raw_record_id": raw_record_id,
+                    }
+                ),
+                status_code=200,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
 
         source = body.get("source")
         if source not in _ALLOWED_SOURCES:
@@ -454,8 +544,6 @@ def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
         asset_type = asset_obj.get("asset_type") or "PROPERTY"
         status = asset_obj.get("status") or "ACTIVE"
         display_name = asset_obj.get("name") or f"{source}:{payload_hash[:12]}"
-
-        config = _get_config()
 
         try:
             asset_row = _insert_supabase_row(
