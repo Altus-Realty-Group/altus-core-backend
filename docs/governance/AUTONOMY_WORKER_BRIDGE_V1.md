@@ -1,208 +1,309 @@
-# AUTONOMY WORKER BRIDGE V1
+AUTONOMY WORKER BRIDGE V1
+Purpose
 
-## Purpose
+Autonomy Worker Bridge V1 extends the control plane from intake and routing into honest execution lifecycle management.
 
-AUTONOMY-02 installs the Worker Execution Bridge V1 for structured claim and result execution handoff.
+It supports:
 
-Bridge capabilities:
-- claim mode packetization for an existing structured task issue
-- result mode completion packetization with deterministic outcome mapping
-- deterministic artifact emission
-- deterministic comment markers for downstream automation
+task claim
 
-## Scope
+task status transition
 
-Working routes:
-- workflow-only / no API route changes
+worker packet generation
 
-The bridge is additive and does not replace deploy workflows.
+worker result return
 
-## Lifecycle
+PR / commit handoff comments
 
-1. Router normalizes task packet and applies queued status.
-2. Worker bridge runs in `claim` mode.
-3. Bridge validates one `lane:*` and one `agent:*`, requires status `queued|blocked`, then sets `status:running`.
-4. Bridge emits packet artifact and packet marker comment.
-5. Worker executes assigned scope.
-6. Worker bridge runs in `result` mode with an explicit `outcome`.
-7. Bridge maps outcome to status (`success|proof-ready -> status:proof-ready`, `blocked|failed -> status:blocked`).
-8. Bridge emits result/handoff artifacts and posts result + conditional handoff comments.
-9. Status reconcile workflow enforces a single `status:*` label.
+dry-run mode when no live worker is attached
 
-## Contracts
+It does not claim full self-coding autonomy if no execution worker is actually wired.
 
-### Workflow: worker_bridge.yml
+Lifecycle
 
-Action modes:
-- `claim`
-- `result`
+Router normalizes issue and applies:
 
-Inputs:
-- `issue_number`
-- `action_mode` (`claim|result`)
-- `dry_run`
-- `outcome` (`success|blocked|failed|proof-ready`)
-- `summary`
-- `changed_files`
-- `commit_sha`
-- `pr_url`
-- `proof_artifacts`
-- `blocker_reason`
-- `next_required_action`
+one lane:*
 
-Required markers:
-- `<!-- autonomy-worker-packet -->`
-- `<!-- autonomy-worker-result -->`
-- `<!-- autonomy-pr-handoff -->`
+one status:queued
 
-Required artifacts:
-- `worker_packet.json`
-- `worker_packet.txt`
-- `worker_result.json`
-- `worker_result.txt`
-- `worker_handoff.txt`
+one agent:*
 
-Claim packet contract fields:
-- `issue_number`
-- `issue_title`
-- `lane`
-- `task_type`
-- `objective`
-- `target_files`
-- `acceptance_criteria`
-- `proof_required`
-- `environment`
-- `priority`
-- `execution_agent`
-- `current_labels`
-- `requested_by`
-- `commit_branch`
-- `expected_result_mode`
-- `proofpack_expectation`
+Worker bridge claims a queued task.
 
-Result contract fields:
-- `issue_number`
-- `outcome`
-- `summary`
-- `changed_files`
-- `commit_sha`
-- `pr_url`
-- `proof_artifacts`
-- `blocker_reason`
-- `next_required_action`
+Claim transitions:
 
-### Workflow: task_status_reconcile.yml
+status:queued -> status:running
 
-Rules:
-- enforce exactly one status label
-- add `status:queued` when no status label exists
-- post reconcile comment marker `<!-- autonomy-status-reconcile -->`
+Worker packet is emitted:
 
-## Dry-Run (Manual)
+artifact
 
-1. Open a structured autonomous task issue.
-2. Run worker_bridge.yml with `action_mode=claim` and `dry_run=true`.
-3. Confirm bridge applies `status:running` and emits `worker_packet.*` plus `<!-- autonomy-worker-packet -->`.
-4. Confirm honesty statement is explicit when no live worker exists (`execution_agent=none` / `agent:none`).
-5. Run worker_bridge.yml with `action_mode=result` and selected `outcome`.
-6. Verify `worker_result.*`, `worker_handoff.txt`, and marker comments are emitted.
-7. Run task_status_reconcile.yml for the issue.
-8. Verify one and only one status label remains.
+issue comment
+
+Execution occurs outside or through a connected worker path.
+
+Result packet is returned with one outcome:
+
+success
+
+blocked
+
+failed
+
+proof-ready
+
+Result transitions:
+
+status:running -> status:proof-ready
+
+status:running -> status:blocked
+
+status:running -> status:queued only by explicit retry
+
+status:proof-ready -> status:closed
+
+status:blocked -> status:queued by manual unblock path
+
+Worker Packet Contract
+
+Marker:
+<!-- autonomy-worker-packet -->
+
+Fields:
+
+issue_number
+
+issue_title
+
+lane
+
+task_type
+
+objective
+
+target_files
+
+acceptance_criteria
+
+proof_required
+
+environment
+
+priority
+
+execution_agent
+
+current_labels
+
+requested_by
+
+commit_branch
+
+expected_result_mode
+
+proofpack_expectation
+
+Worker Result Contract
+
+Marker:
+<!-- autonomy-worker-result -->
+
+Fields:
+
+issue_number
+
+outcome
+
+summary
+
+changed_files
+
+commit_sha
+
+pr_url
+
+proof_artifacts
+
+blocker_reason
+
+next_required_action
+
+PR / Commit Handoff Contract
+
+Marker:
+<!-- autonomy-pr-handoff -->
+
+Fields:
+
+branch
+
+commit_sha
+
+pr_url
+
+changed_files
+
+proofpack_artifacts
+
+Supports:
+
+commit-only mode
+
+PR mode
+
+Dry-Run Mode
+
+Dry-run is mandatory for repos without a live coding worker.
 
 Dry-run behavior:
-- claim task
-- apply `status:running`
-- emit packet artifact + comment
-- stop honestly if no live worker exists
 
-## Example Input Issue Body
+task is claimed
 
-### lane
+status:running is applied
+
+worker packet artifact is created
+
+worker packet comment is created
+
+workflow stops without pretending execution occurred
+
+Live Worker Mode
+
+If a real worker is attached, result inputs can be returned through workflow_dispatch:
+
+success
+
+blocked
+
+failed
+
+proof-ready
+
+Human / Operator Override
+
+Operators may:
+
+move status:blocked -> status:queued
+
+close status:proof-ready tasks after review
+
+use workflow_dispatch for claim or result simulation
+
+Proof Binding
+
+Proof artifacts bind to task lifecycle via:
+
+worker bridge artifact uploads
+
+proofpack collector
+
+issue comments with markers
+
+Example Lifecycle Packet Set
+Example Input Issue Body
+lane
+
 be-core
 
-### task_type
+task_type
+
 infra
 
-### objective
-Install worker bridge and status reconcile workflows.
+objective
 
-### target_files
+Install worker bridge and status reconciliation.
+
+target_files
+
 .github/workflows/worker_bridge.yml
 .github/workflows/task_status_reconcile.yml
 docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
 
-### acceptance_criteria
-Bridge emits packet/result/handoff artifacts.
-Reconcile enforces single status label.
+acceptance_criteria
 
-### proof_required
+Queued task can be claimed.
+Worker packet is emitted.
+Result packet can move issue to proof-ready.
+
+proof_required
+
 A-E
 
-### environment
+environment
+
 staging
 
-### priority
+priority
+
 p1
 
-### execution_agent
+execution_agent
+
 vs
 
-## Expected Labels Before Execution
-- lane:be-core
-- status:queued
-- agent:vs
+Expected Labels Before Execution
 
-## Worker Packet Comment Output
+lane:be-core
 
+status:queued
+
+agent:vs
+
+Worker Packet Comment Output
 <!-- autonomy-worker-packet -->
-## Worker Packet
+Autonomy Worker Packet
+
 issue_number: 123
-issue_title: [AUTO] Install worker bridge and status reconcile workflows.
+issue_title: [AUTO] Install worker bridge
 lane: be-core
 task_type: infra
-objective: Install worker bridge and status reconcile workflows.
+objective: Install worker bridge and status reconciliation.
 target_files: .github/workflows/worker_bridge.yml
 .github/workflows/task_status_reconcile.yml
 docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
-acceptance_criteria: Bridge emits packet/result/handoff artifacts.
-Reconcile enforces single status label.
+acceptance_criteria: Queued task can be claimed.
+Worker packet is emitted.
+Result packet can move issue to proof-ready.
 proof_required: A-E
 environment: staging
 priority: p1
 execution_agent: vs
 current_labels: lane:be-core, status:running, agent:vs
-requested_by: be-core
-commit_branch: feature/core-asset-ingest-01
-expected_result_mode: result
+requested_by: operator
+commit_branch: autonomy/issue-123
+expected_result_mode: success|blocked|failed|proof-ready
 proofpack_expectation: docs/proofpacks/<YYYY-MM-DD>_be-core_autonomy-02
+dry_run: true
 
-## Worker Result Comment Output
-
+Worker Result Comment Output
 <!-- autonomy-worker-result -->
-## Worker Result
+Autonomy Worker Result
+
 issue_number: 123
-outcome: success
-summary: AUTONOMY-02A corrected worker bridge contract drift.
+outcome: proof-ready
+summary: Worker packet generated and dry-run completed.
 changed_files: .github/workflows/worker_bridge.yml, .github/workflows/task_status_reconcile.yml, docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
-commit_sha: abcdef1234567890
-pr_url: https://github.com/Altus-Realty-Group/altus-core-backend/pull/456
+commit_sha: abc123def456
+pr_url:
 proof_artifacts: docs/proofpacks/2026-03-06_be-core_autonomy-02/AUTONOMY02A_CORRECTION_RAW.txt
 blocker_reason:
-next_required_action: BE-Core review and close if accepted.
+next_required_action: review proof and close task
 
-## PR / Commit Handoff Comment Output
-
+PR / Commit Handoff Comment Output
 <!-- autonomy-pr-handoff -->
-## PR / Commit Handoff
-issue_number: 123
-outcome: success
-summary: AUTONOMY-02A corrected worker bridge contract drift.
-changed_files: .github/workflows/worker_bridge.yml, .github/workflows/task_status_reconcile.yml, docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
-commit_sha: abcdef1234567890
-pr_url: https://github.com/Altus-Realty-Group/altus-core-backend/pull/456
-proof_artifacts: docs/proofpacks/2026-03-06_be-core_autonomy-02/AUTONOMY02A_CORRECTION_RAW.txt
-blocker_reason:
-next_required_action: BE-Core review and close if accepted.
+Autonomy PR / Commit Handoff
 
-## Final Expected Status Labels
-- status:proof-ready
+branch: autonomy/issue-123
+commit_sha: abc123def456
+pr_url:
+changed_files: .github/workflows/worker_bridge.yml, .github/workflows/task_status_reconcile.yml, docs/governance/AUTONOMY_WORKER_BRIDGE_V1.md
+proofpack_artifacts: docs/proofpacks/2026-03-06_be-core_autonomy-02/AUTONOMY02A_CORRECTION_RAW.txt
+
+Final Expected Status Labels
+
+lane:be-core
+
+status:proof-ready
+
+agent:vs
