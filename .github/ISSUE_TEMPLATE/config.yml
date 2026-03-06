@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Autonomy Control Plane V1
+    url: https://github.com/Altus-Realty-Group/altus-core-backend/blob/feature/core-asset-ingest-01/docs/governance/AUTONOMY_CONTROL_PLANE_V1.md
+    about: Read the authoritative routing, proof, and responsibility rules before opening work.

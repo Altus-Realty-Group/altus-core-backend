@@ -1,0 +1,306 @@
+name: autonomy_router
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  workflow_dispatch:
+    inputs:
+      title:
+        description: Issue title
+        required: true
+        type: string
+      lane:
+        description: lane
+        required: true
+        type: choice
+        options:
+          - be-core
+          - be-ecc
+          - fe-ecc
+          - fe-pe
+          - fe-ih
+          - cd
+      task_type:
+        description: task_type
+        required: true
+        type: choice
+        options:
+          - bug
+          - feature
+          - infra
+          - proof
+          - deploy
+          - audit
+      objective:
+        description: objective
+        required: true
+        type: string
+      target_files:
+        description: target_files (newline separated)
+        required: true
+        type: string
+      acceptance_criteria:
+        description: acceptance_criteria (newline separated)
+        required: true
+        type: string
+      proof_required:
+        description: proof_required
+        required: true
+        default: A-E
+        type: string
+      environment:
+        description: environment
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+          - local
+      priority:
+        description: priority
+        required: true
+        type: choice
+        options:
+          - p0
+          - p1
+          - p2
+          - p3
+      execution_agent:
+        description: execution_agent
+        required: true
+        type: choice
+        options:
+          - vs
+          - supabase
+          - antigravity
+          - replit
+          - none
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Route issue or manual task
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const laneLabels = {
+              "be-core": "lane:be-core",
+              "be-ecc": "lane:be-ecc",
+              "fe-ecc": "lane:fe-ecc",
+              "fe-pe": "lane:fe-pe",
+              "fe-ih": "lane:fe-ih",
+              "cd": "lane:cd"
+            };
+
+            const statusLabels = [
+              "status:queued",
+              "status:running",
+              "status:blocked",
+              "status:proof-ready"
+            ];
+
+            const agentLabels = {
+              "vs": "agent:vs",
+              "supabase": "agent:supabase",
+              "antigravity": "agent:antigravity",
+              "replit": "agent:replit",
+              "none": null
+            };
+
+            const allManagedLabels = [
+              ...Object.values(laneLabels),
+              ...statusLabels,
+              ...Object.values(agentLabels).filter(Boolean)
+            ];
+
+            const labelColors = {
+              "lane:be-core": "1d76db",
+              "lane:be-ecc": "1d76db",
+              "lane:fe-ecc": "5319e7",
+              "lane:fe-pe": "5319e7",
+              "lane:fe-ih": "5319e7",
+              "lane:cd": "0052cc",
+              "status:queued": "fbca04",
+              "status:running": "0e8a16",
+              "status:blocked": "d93f0b",
+              "status:proof-ready": "5319e7",
+              "agent:vs": "c5def5",
+              "agent:supabase": "bfdadc",
+              "agent:antigravity": "f9d0c4",
+              "agent:replit": "fef2c0"
+            };
+
+            async function ensureLabel(name) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                    color: labelColors[name] || "ededed"
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            function section(body, key) {
+              if (!body) return "";
+              const re = new RegExp(`###\\s+${key}\\s*\\n+([\\s\\S]*?)(?=\\n###\\s+|$)`, "i");
+              const match = body.match(re);
+              return match ? match[1].trim() : "";
+            }
+
+            function normalize(value, map, fallback = "") {
+              const v = (value || "").trim().toLowerCase();
+              return map[v] || fallback;
+            }
+
+            function buildIssueBody(packet) {
+              return [
+                "### lane",
+                packet.lane,
+                "",
+                "### task_type",
+                packet.task_type,
+                "",
+                "### objective",
+                packet.objective,
+                "",
+                "### target_files",
+                packet.target_files,
+                "",
+                "### acceptance_criteria",
+                packet.acceptance_criteria,
+                "",
+                "### proof_required",
+                packet.proof_required,
+                "",
+                "### environment",
+                packet.environment,
+                "",
+                "### priority",
+                packet.priority,
+                "",
+                "### execution_agent",
+                packet.execution_agent
+              ].join("\n");
+            }
+
+            function buildComment(packet, labels) {
+              return [
+                "<!-- autonomy-router:normalized-task -->",
+                "## Autonomy Router Packet",
+                `lane: ${packet.lane}`,
+                `task_type: ${packet.task_type}`,
+                `objective: ${packet.objective}`,
+                `target_files: ${packet.target_files}`,
+                `acceptance_criteria: ${packet.acceptance_criteria}`,
+                `proof_required: ${packet.proof_required}`,
+                `environment: ${packet.environment}`,
+                `priority: ${packet.priority}`,
+                `execution_agent: ${packet.execution_agent}`,
+                "",
+                "## Expected Labels",
+                ...labels.map(l => `- ${l}`)
+              ].join("\n");
+            }
+
+            let issueNumber;
+            let packet;
+
+            if (context.eventName === "workflow_dispatch") {
+              packet = {
+                lane: core.getInput("lane"),
+                task_type: core.getInput("task_type"),
+                objective: core.getInput("objective"),
+                target_files: core.getInput("target_files"),
+                acceptance_criteria: core.getInput("acceptance_criteria"),
+                proof_required: core.getInput("proof_required"),
+                environment: core.getInput("environment"),
+                priority: core.getInput("priority"),
+                execution_agent: core.getInput("execution_agent")
+              };
+
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: core.getInput("title"),
+                body: buildIssueBody(packet)
+              });
+
+              issueNumber = created.data.number;
+            } else {
+              const issue = context.payload.issue;
+              issueNumber = issue.number;
+
+              const body = issue.body || "";
+              packet = {
+                lane: section(body, "lane"),
+                task_type: section(body, "task_type"),
+                objective: section(body, "objective"),
+                target_files: section(body, "target_files"),
+                acceptance_criteria: section(body, "acceptance_criteria"),
+                proof_required: section(body, "proof_required"),
+                environment: section(body, "environment"),
+                priority: section(body, "priority"),
+                execution_agent: section(body, "execution_agent")
+              };
+
+              if (!packet.lane || !packet.objective || !packet.execution_agent) {
+                core.info("Issue is not a structured autonomous task. Exiting.");
+                return;
+              }
+            }
+
+            const normalizedLane = normalize(packet.lane, laneLabels);
+            const normalizedAgent = normalize(packet.execution_agent, agentLabels, null);
+            const labelsToApply = [normalizedLane, "status:queued"];
+            if (normalizedAgent) labelsToApply.push(normalizedAgent);
+
+            for (const label of allManagedLabels) {
+              await ensureLabel(label);
+            }
+
+            const current = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            for (const label of current.data.map(l => l.name)) {
+              if (allManagedLabels.includes(label) && !labelsToApply.includes(label)) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: label
+                }).catch(() => {});
+              }
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: labelsToApply
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: buildComment(packet, labelsToApply)
+            });

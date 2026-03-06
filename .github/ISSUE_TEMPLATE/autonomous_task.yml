@@ -1,0 +1,117 @@
+name: Autonomous Task
+description: Structured intake for routed autonomous work
+title: "[AUTO] "
+labels:
+  - status:queued
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Submit structured work only. This form feeds the Autonomy Control Plane router.
+
+  - type: dropdown
+    id: lane
+    attributes:
+      label: lane
+      description: Primary execution lane
+      options:
+        - be-core
+        - be-ecc
+        - fe-ecc
+        - fe-pe
+        - fe-ih
+        - cd
+    validations:
+      required: true
+
+  - type: dropdown
+    id: task_type
+    attributes:
+      label: task_type
+      description: Work classification
+      options:
+        - bug
+        - feature
+        - infra
+        - proof
+        - deploy
+        - audit
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: objective
+      description: What must be accomplished
+      placeholder: Restore...
+    validations:
+      required: true
+
+  - type: textarea
+    id: target_files
+    attributes:
+      label: target_files
+      description: One path per line
+      placeholder: |
+        azure/functions/asset_ingest/function_app.py
+        .github/workflows/deploy.yml
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: acceptance_criteria
+      description: One requirement per line
+      placeholder: |
+        Endpoint returns 200
+        Proof Pack A-E complete
+    validations:
+      required: true
+
+  - type: input
+    id: proof_required
+    attributes:
+      label: proof_required
+      description: A-E or custom proof set
+      placeholder: A-E
+      value: A-E
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: environment
+      options:
+        - staging
+        - prod
+        - local
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: priority
+      options:
+        - p0
+        - p1
+        - p2
+        - p3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: execution_agent
+    attributes:
+      label: execution_agent
+      options:
+        - vs
+        - supabase
+        - antigravity
+        - replit
+        - none
+    validations:
+      required: true
