@@ -31,6 +31,14 @@ _LINK_DELETE_SOURCE_PREFIX = "ASSET_LINK_DELETE::"
 _ARCHIVE_SOURCE_PREFIX = "ASSET_ARCHIVE::"
 _RESTORE_SOURCE_PREFIX = "ASSET_RESTORE::"
 _DELETE_SOURCE_PREFIX = "ASSET_DELETE::"
+_OVERVIEW_AUDIT_EVENT_TYPES = {
+    "raw_ingest",
+    "enrichment_write",
+    "asset_link_create",
+    "asset_link_delete",
+    "asset_archived",
+    "asset_restored",
+}
 
 
 class RuntimeConfig:
@@ -421,6 +429,31 @@ def _asset_audit_internal_error() -> func.HttpResponse:
             }
         ),
         status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _asset_overview_internal_error() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": "ASSET_OVERVIEW_INTERNAL",
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _overview_bad_request() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps({"ok": False, "error": "Invalid request"}),
+        status_code=400,
         headers=_build_headers(),
         mimetype="application/json",
     )
@@ -959,6 +992,187 @@ def _build_audit_items(
     return all_items[offset: offset + limit]
 
 
+def _get_overview_linked_asset_ids(
+    organization_id: str,
+    organization_asset_ids: set[str],
+    config: RuntimeConfig,
+) -> set[str]:
+    try:
+        link_rows = _supabase_get_rows(
+            "asset_links",
+            {
+                "select": "parent_asset_id,child_asset_id",
+                "organization_id": f"eq.{organization_id}",
+                "order": "id.desc",
+                "limit": "5000",
+            },
+            config,
+        )
+
+        linked_asset_ids: set[str] = set()
+        for row in link_rows:
+            parent_asset_id = str(row.get("parent_asset_id") or "")
+            child_asset_id = str(row.get("child_asset_id") or "")
+            if parent_asset_id in organization_asset_ids:
+                linked_asset_ids.add(parent_asset_id)
+            if child_asset_id in organization_asset_ids:
+                linked_asset_ids.add(child_asset_id)
+        return linked_asset_ids
+    except RuntimeError as exc:
+        if not _is_missing_asset_links_table_error(exc):
+            raise
+
+    raw_rows = _supabase_get_rows(
+        "asset_data_raw",
+        {
+            "select": "id,source,payload_jsonb,fetched_at",
+            "order": "fetched_at.desc,id.desc",
+            "limit": "5000",
+        },
+        config,
+    )
+
+    deleted_keys: set[tuple[str, str, str]] = set()
+    active_keys: set[tuple[str, str, str]] = set()
+
+    for row in raw_rows:
+        payload = row.get("payload_jsonb")
+        if not isinstance(payload, dict):
+            continue
+
+        if payload.get("organization_id") != organization_id:
+            continue
+
+        parent_asset_id = payload.get("parent_asset_id")
+        child_asset_id = payload.get("child_asset_id")
+        link_type = payload.get("link_type")
+        if not isinstance(parent_asset_id, str) or not isinstance(child_asset_id, str) or not isinstance(link_type, str):
+            continue
+
+        link_key = (parent_asset_id, child_asset_id, link_type)
+        source_value = str(row.get("source") or "")
+        record_type = payload.get("record_type")
+
+        if record_type == "asset_link_delete" or source_value.startswith(_LINK_DELETE_SOURCE_PREFIX):
+            deleted_keys.add(link_key)
+            continue
+
+        if not (record_type == "asset_link" or source_value.startswith(_LINK_SOURCE_PREFIX)):
+            continue
+
+        if link_key in deleted_keys:
+            continue
+
+        active_keys.add(link_key)
+
+    linked_asset_ids: set[str] = set()
+    for parent_asset_id, child_asset_id, _ in active_keys:
+        if parent_asset_id in organization_asset_ids:
+            linked_asset_ids.add(parent_asset_id)
+        if child_asset_id in organization_asset_ids:
+            linked_asset_ids.add(child_asset_id)
+
+    return linked_asset_ids
+
+
+def _get_overview_recent_audit(
+    assets_by_id: dict[str, dict[str, Any]],
+    recent_limit: int,
+    config: RuntimeConfig,
+) -> tuple[list[dict[str, Any]], int]:
+    organization_asset_ids = set(assets_by_id.keys())
+    if not organization_asset_ids:
+        return [], 0
+
+    raw_rows = _supabase_get_rows(
+        "asset_data_raw",
+        {
+            "select": "id,asset_id,source,payload_jsonb,fetched_at",
+            "order": "fetched_at.desc,id.desc",
+            "limit": "5000",
+        },
+        config,
+    )
+
+    scoped_rows: list[dict[str, Any]] = []
+    for row in raw_rows:
+        asset_id = str(row.get("asset_id") or "")
+        if asset_id in organization_asset_ids:
+            scoped_rows.append(row)
+
+    raw_ingest_row_ids_by_asset: dict[str, str] = {}
+    oldest_timestamp_by_asset: dict[str, str] = {}
+    for row in scoped_rows:
+        asset_id = str(row.get("asset_id") or "")
+        source_value = str(row.get("source") or "")
+        payload_value = row.get("payload_jsonb")
+        payload_record_type = payload_value.get("record_type") if isinstance(payload_value, dict) else None
+
+        if payload_record_type in {
+            "asset_link",
+            "asset_link_delete",
+            "asset_archived",
+            "asset_archive",
+            "asset_restored",
+            "asset_restore",
+            "asset_deleted",
+            "asset_delete",
+        }:
+            continue
+
+        if source_value.startswith(
+            (
+                _LINK_SOURCE_PREFIX,
+                _LINK_DELETE_SOURCE_PREFIX,
+                _ARCHIVE_SOURCE_PREFIX,
+                _RESTORE_SOURCE_PREFIX,
+                _DELETE_SOURCE_PREFIX,
+            )
+        ):
+            continue
+
+        fetched_at = str(row.get("fetched_at") or "")
+        existing_oldest_timestamp = oldest_timestamp_by_asset.get(asset_id)
+        if existing_oldest_timestamp is None or fetched_at < existing_oldest_timestamp:
+            oldest_timestamp_by_asset[asset_id] = fetched_at
+            raw_ingest_row_ids_by_asset[asset_id] = str(row.get("id") or "")
+
+    latest_audit_by_asset: dict[str, dict[str, Any]] = {}
+    sorted_scoped_rows = sorted(
+        scoped_rows,
+        key=lambda row: (str(row.get("fetched_at") or ""), str(row.get("id") or "")),
+        reverse=True,
+    )
+
+    for row in sorted_scoped_rows:
+        asset_id = str(row.get("asset_id") or "")
+        if asset_id in latest_audit_by_asset:
+            continue
+
+        event_type = _audit_derive_event_type(row, raw_ingest_row_ids_by_asset.get(asset_id))
+        if event_type not in _OVERVIEW_AUDIT_EVENT_TYPES:
+            continue
+
+        asset_row = assets_by_id.get(asset_id)
+        if asset_row is None:
+            continue
+
+        latest_audit_by_asset[asset_id] = {
+            "asset_id": asset_id,
+            "display_name": asset_row.get("display_name"),
+            "latest_event_type": event_type,
+            "occurred_at": row.get("fetched_at"),
+        }
+
+    sorted_recent_audit_assets = sorted(
+        latest_audit_by_asset.values(),
+        key=lambda item: (str(item.get("occurred_at") or ""), str(item.get("asset_id") or "")),
+        reverse=True,
+    )
+
+    return sorted_recent_audit_assets[:recent_limit], len(latest_audit_by_asset)
+
+
 def _get_snapshot_links_from_fallback(asset_id: str, config: RuntimeConfig) -> list[dict[str, Any]]:
     raw_rows = _supabase_get_rows(
         "asset_data_raw",
@@ -1225,6 +1439,105 @@ def assets_list(req: func.HttpRequest) -> func.HttpResponse:
     except Exception:
         logging.exception("Asset list failed")
         return _internal_error()
+
+
+@app.route(route="assets/overview", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def assets_overview(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return _overview_bad_request()
+
+        recent_limit_raw = req.params.get("recent_limit", "5")
+        try:
+            recent_limit = int(recent_limit_raw)
+        except ValueError:
+            return _overview_bad_request()
+
+        if recent_limit < 1 or recent_limit > 20:
+            return _overview_bad_request()
+
+        config = _get_config()
+
+        all_assets = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id,display_name,asset_type,status,created_at,updated_at",
+                "organization_id": f"eq.{organization_id}",
+                "order": "id.desc",
+                "limit": "10000",
+            },
+            config,
+        )
+
+        assets_by_id: dict[str, dict[str, Any]] = {
+            str(asset.get("id") or ""): asset
+            for asset in all_assets
+            if str(asset.get("id") or "")
+        }
+
+        recent_created = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id,display_name,asset_type,status,created_at,updated_at",
+                "organization_id": f"eq.{organization_id}",
+                "order": "created_at.desc,id.desc",
+                "limit": str(recent_limit),
+            },
+            config,
+        )
+
+        recent_changed = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id,display_name,asset_type,status,created_at,updated_at",
+                "organization_id": f"eq.{organization_id}",
+                "order": "updated_at.desc,id.desc",
+                "limit": str(recent_limit),
+            },
+            config,
+        )
+
+        organization_asset_ids = set(assets_by_id.keys())
+        linked_asset_ids = _get_overview_linked_asset_ids(
+            organization_id=organization_id,
+            organization_asset_ids=organization_asset_ids,
+            config=config,
+        )
+        recent_audit_assets, assets_with_recent_audit = _get_overview_recent_audit(
+            assets_by_id=assets_by_id,
+            recent_limit=recent_limit,
+            config=config,
+        )
+
+        total_assets = len(all_assets)
+        active_assets = sum(1 for asset in all_assets if str(asset.get("status") or "").upper() == "ACTIVE")
+        archived_assets = sum(1 for asset in all_assets if str(asset.get("status") or "").upper() == "ARCHIVED")
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "summary": {
+                        "total_assets": total_assets,
+                        "active_assets": active_assets,
+                        "archived_assets": archived_assets,
+                        "linked_assets": len(linked_asset_ids),
+                        "assets_with_recent_audit": assets_with_recent_audit,
+                    },
+                    "recent_created": recent_created,
+                    "recent_changed": recent_changed,
+                    "recent_audit_assets": recent_audit_assets,
+                    "recent_limit": recent_limit,
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset overview failed")
+        return _asset_overview_internal_error()
 
 
 @app.route(route="assets/search", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
