@@ -48,11 +48,35 @@ jobs:
             "worker_result.json" \
             "worker_result.txt" \
             "worker_handoff.txt" \
+            "worker_execution_packet.json" \
+            "worker_execution_packet.txt" \
+            "worker_result_packet.json" \
+            "worker_result_packet.txt" \
+            "worker_final_handoff_packet.json" \
+            "worker_final_handoff_packet.txt" \
+            "backend_execution_packet_issue_*.json" \
+            "backend_execution_packet_issue_*.txt" \
+            "backend_result_packet_issue_*.json" \
+            "backend_result_packet_issue_*.txt" \
+            "backend_final_handoff_issue_*.json" \
+            "backend_final_handoff_issue_*.txt" \
             "**/worker_packet.json" \
             "**/worker_packet.txt" \
             "**/worker_result.json" \
             "**/worker_result.txt" \
-            "**/worker_handoff.txt"
+            "**/worker_handoff.txt" \
+            "**/worker_execution_packet.json" \
+            "**/worker_execution_packet.txt" \
+            "**/worker_result_packet.json" \
+            "**/worker_result_packet.txt" \
+            "**/worker_final_handoff_packet.json" \
+            "**/worker_final_handoff_packet.txt" \
+            "**/backend_execution_packet_issue_*.json" \
+            "**/backend_execution_packet_issue_*.txt" \
+            "**/backend_result_packet_issue_*.json" \
+            "**/backend_result_packet_issue_*.txt" \
+            "**/backend_final_handoff_issue_*.json" \
+            "**/backend_final_handoff_issue_*.txt"
           do
             for file in $pattern; do
               [ -f "$file" ] && files+=("$file")

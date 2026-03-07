@@ -9,6 +9,7 @@ What it does:
 - normalized lane and agent routing labels
 - workflow_dispatch manual task injection
 - worker execution bridge claim/result packetization
+- backend direct worker execution loop for `lane:be-core`
 - status reconciliation for single status label enforcement
 - proof artifact collection
 - OIDC validation workflow for Azure posture
@@ -29,15 +30,39 @@ What it does **not** do yet:
    - zero or one `agent:*` label
 4. Router comments back a normalized packet.
 5. Execution proceeds outside the router using the assigned worker.
-6. `worker_bridge.yml` emits packet/result/handoff artifacts and comments.
-7. `task_status_reconcile.yml` enforces exactly one `status:*` label.
-8. Proof artifacts are collected by `proofpack_collect.yml`.
-9. Status progresses from:
+6. `lane:be-core` defaults to repo-native direct execution using:
+   - `.github/workflows/worker_execute_backend.yml`
+   - `.github/workflows/worker_finalize_backend.yml`
+7. `worker_bridge.yml` remains available as relay fallback and compatibility bridge.
+8. `task_status_reconcile.yml` enforces exactly one `status:*` label.
+9. Proof artifacts are collected by `proofpack_collect.yml`.
+10. Status progresses from:
    - `status:queued`
    - `status:running`
    - `status:blocked`
    - `status:proof-ready`
    - `status:closed`
+
+## Backend Standard Execution Model
+
+CD directive
+↓
+BE prepares backend execution packet
+↓
+repo-native worker execution loop runs
+↓
+proof artifacts collected
+↓
+BE validates result
+↓
+CD receives final validated result
+
+### Backend Default Rule
+
+- For `lane:be-core`, direct worker execution is the preferred path.
+- Dion relay is fallback transport only.
+- Manual relay is not the default backend path.
+- Proof remains mandatory for completion.
 
 ## Labels
 
@@ -71,6 +96,7 @@ What it does **not** do yet:
 - Router does not execute work.
 - Router only normalizes labels and comments back the packet.
 - Worker execution bridge performs claim/result packet comments and artifacts.
+- For `lane:be-core`, router prefers direct backend execution workflow dispatch.
 
 ## Proof Pack Artifact Rules
 

@@ -79,6 +79,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: write
 
 jobs:
   route:
@@ -307,3 +308,54 @@ jobs:
               issue_number: issueNumber,
               body: buildComment(packet, labelsToApply)
             });
+
+            if (normalizedLane === 'lane:be-core') {
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'worker_execute_backend.yml',
+                  ref: context.ref.replace('refs/heads/', '') || 'main',
+                  inputs: {
+                    issue_number: String(issueNumber),
+                    dry_run: 'true',
+                    repository: `${context.repo.owner}/${context.repo.repo}`,
+                    branch: context.ref.replace('refs/heads/', '') || 'main',
+                    target_files: packet.target_files || '',
+                    execution_objective: packet.objective || '',
+                    proof_requirements: packet.proof_required || '',
+                    environment: packet.environment || '',
+                    priority: packet.priority || '',
+                    execution_agent: packet.execution_agent || '',
+                    expected_proofpack: `docs/proofpacks/<YYYY-MM-DD>_be-core_issue-${issueNumber}`,
+                    execution_mode: 'direct'
+                  }
+                });
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: [
+                    '<!-- autonomy-direct-execution-pref -->',
+                    '## Backend Direct Execution Preference',
+                    'lane:be-core defaults to repo-native direct worker execution.',
+                    'Dion relay is fallback transport only.',
+                    `workflow_dispatch: worker_execute_backend.yml issue_number=${issueNumber} dry_run=true execution_mode=direct`
+                  ].join('\n')
+                });
+              } catch (dispatchError) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: [
+                    '<!-- autonomy-direct-execution-fallback -->',
+                    '## Backend Direct Execution Dispatch Fallback',
+                    'Automatic worker_execute_backend dispatch failed; use manual workflow_dispatch.',
+                    'Dion relay remains fallback transport only.',
+                    `dispatch_error: ${dispatchError.message}`
+                  ].join('\n')
+                });
+              }
+            }

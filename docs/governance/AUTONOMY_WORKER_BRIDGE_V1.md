@@ -17,6 +17,14 @@ PR / commit handoff comments
 
 dry-run mode when no live worker is attached
 
+AUTONOMY-03 extends this with repo-native backend direct execution workflows:
+
+`.github/workflows/worker_execute_backend.yml`
+
+`.github/workflows/worker_finalize_backend.yml`
+
+For `lane:be-core`, direct execution is standard. Dion relay is fallback transport only.
+
 It does not claim full self-coding autonomy if no execution worker is actually wired.
 
 Lifecycle
@@ -104,6 +112,14 @@ expected_result_mode
 
 proofpack_expectation
 
+repo
+
+branch
+
+expected_proofpack
+
+execution_mode
+
 Worker Result Contract
 
 Marker:
@@ -128,6 +144,8 @@ proof_artifacts
 blocker_reason
 
 next_required_action
+
+execution_mode
 
 PR / Commit Handoff Contract
 
@@ -199,6 +217,14 @@ worker bridge artifact uploads
 proofpack collector
 
 issue comments with markers
+
+AUTONOMY-03 adds deterministic backend markers:
+
+`<!-- autonomy-backend-execution-packet -->`
+
+`<!-- autonomy-backend-result-packet -->`
+
+`<!-- autonomy-backend-final-handoff -->`
 
 Example Lifecycle Packet Set
 Example Input Issue Body

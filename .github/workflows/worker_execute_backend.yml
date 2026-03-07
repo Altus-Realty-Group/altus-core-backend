@@ -1,0 +1,290 @@
+name: worker_execute_backend
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Backend issue number to claim/execute
+        required: true
+        type: string
+      dry_run:
+        description: Simulate execution loop only
+        required: true
+        default: true
+        type: boolean
+      repository:
+        description: Repository name (owner/repo)
+        required: false
+        default: ""
+        type: string
+      branch:
+        description: Branch to execute on
+        required: false
+        default: ""
+        type: string
+      target_files:
+        description: Target files (newline or comma separated)
+        required: false
+        default: ""
+        type: string
+      execution_objective:
+        description: Execution objective override
+        required: false
+        default: ""
+        type: string
+      proof_requirements:
+        description: Proof requirements override
+        required: false
+        default: ""
+        type: string
+      environment:
+        description: Execution environment override
+        required: false
+        default: ""
+        type: string
+      priority:
+        description: Priority override
+        required: false
+        default: ""
+        type: string
+      execution_agent:
+        description: Execution agent override
+        required: false
+        default: ""
+        type: string
+      expected_proofpack:
+        description: Expected proofpack path override
+        required: false
+        default: ""
+        type: string
+      execution_mode:
+        description: direct or relay-fallback
+        required: false
+        default: direct
+        type: choice
+        options:
+          - direct
+          - relay-fallback
+
+permissions:
+  contents: read
+  issues: write
+  actions: write
+
+jobs:
+  execute:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'status:queued'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Claim queued backend task and emit execution packet
+        uses: actions/github-script@v7
+        env:
+          INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_REPOSITORY: ${{ inputs.repository }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_TARGET_FILES: ${{ inputs.target_files }}
+          INPUT_EXECUTION_OBJECTIVE: ${{ inputs.execution_objective }}
+          INPUT_PROOF_REQUIREMENTS: ${{ inputs.proof_requirements }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_PRIORITY: ${{ inputs.priority }}
+          INPUT_EXECUTION_AGENT: ${{ inputs.execution_agent }}
+          INPUT_EXPECTED_PROOFPACK: ${{ inputs.expected_proofpack }}
+          INPUT_EXECUTION_MODE: ${{ inputs.execution_mode }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            const STATUS_LABELS = [
+              'status:queued',
+              'status:running',
+              'status:blocked',
+              'status:proof-ready',
+              'status:closed'
+            ];
+
+            function section(markdown, key) {
+              if (!markdown) return '';
+              const re = new RegExp(`###\\s+${key}\\s*\\n+([\\s\\S]*?)(?=\\n###\\s+|$)`, 'i');
+              const match = markdown.match(re);
+              return match ? match[1].trim() : '';
+            }
+
+            function normalizeList(value) {
+              return (value || '')
+                .split(/\r?\n|,/) 
+                .map(v => v.trim())
+                .filter(Boolean);
+            }
+
+            async function listIssueLabels(issueNumber) {
+              const response = await github.rest.issues.listLabelsOnIssue({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber
+              });
+              return response.data.map(label => label.name);
+            }
+
+            async function setSingleStatus(issueNumber, nextStatus) {
+              const current = await listIssueLabels(issueNumber);
+              for (const name of current) {
+                if (STATUS_LABELS.includes(name) && name !== nextStatus) {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    name
+                  }).catch(() => {});
+                }
+              }
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: [nextStatus]
+              });
+            }
+
+            const eventIssueNumber = context.eventName === 'issues' ? context.payload.issue.number : null;
+            const dispatchIssueNumber = Number((process.env.INPUT_ISSUE_NUMBER || '').trim());
+            const issueNumber = eventIssueNumber || dispatchIssueNumber;
+
+            if (!issueNumber || Number.isNaN(issueNumber)) {
+              core.setFailed('issue_number must be provided and numeric');
+              return;
+            }
+
+            const issueResponse = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            const issue = issueResponse.data;
+            const labels = issue.labels.map(label => label.name);
+            const laneLabels = labels.filter(name => name.startsWith('lane:'));
+            const agentLabels = labels.filter(name => name.startsWith('agent:'));
+            const statusLabels = labels.filter(name => STATUS_LABELS.includes(name));
+            const lane = laneLabels[0] || '';
+
+            if (lane !== 'lane:be-core') {
+              core.info(`Issue ${issueNumber} is not lane:be-core. Skipping direct backend loop.`);
+              return;
+            }
+
+            if (laneLabels.length !== 1) {
+              core.setFailed(`claim requires exactly one lane:* label; found ${laneLabels.length}`);
+              return;
+            }
+            if (agentLabels.length !== 1) {
+              core.setFailed(`claim requires exactly one agent:* label; found ${agentLabels.length}`);
+              return;
+            }
+            if (!statusLabels.includes('status:queued')) {
+              core.setFailed('claim requires status:queued');
+              return;
+            }
+
+            await setSingleStatus(issueNumber, 'status:running');
+            const labelsAfterClaim = await listIssueLabels(issueNumber);
+
+            const dryRun = String(process.env.INPUT_DRY_RUN || 'true').toLowerCase() === 'true';
+            const executionMode = (process.env.INPUT_EXECUTION_MODE || 'direct').trim() || 'direct';
+            const objective = (process.env.INPUT_EXECUTION_OBJECTIVE || '').trim() || section(issue.body || '', 'objective');
+            const targetFilesRaw = (process.env.INPUT_TARGET_FILES || '').trim() || section(issue.body || '', 'target_files');
+            const acceptanceCriteria = section(issue.body || '', 'acceptance_criteria');
+            const proofRequired = (process.env.INPUT_PROOF_REQUIREMENTS || '').trim() || section(issue.body || '', 'proof_required');
+            const environment = (process.env.INPUT_ENVIRONMENT || '').trim() || section(issue.body || '', 'environment');
+            const priority = (process.env.INPUT_PRIORITY || '').trim() || section(issue.body || '', 'priority');
+            const executionAgent = (process.env.INPUT_EXECUTION_AGENT || '').trim() || section(issue.body || '', 'execution_agent') || agentLabels[0].replace('agent:', '');
+            const repository = (process.env.INPUT_REPOSITORY || '').trim() || `${context.repo.owner}/${context.repo.repo}`;
+            const branch = (process.env.INPUT_BRANCH || '').trim() || process.env.GITHUB_REF_NAME || '';
+            const expectedProofpack = (process.env.INPUT_EXPECTED_PROOFPACK || '').trim() || `docs/proofpacks/<YYYY-MM-DD>_be-core_issue-${issueNumber}`;
+
+            if (!dryRun) {
+              const missing = [];
+              if (!repository) missing.push('repository');
+              if (!branch) missing.push('branch');
+              if (!targetFilesRaw) missing.push('target_files');
+              if (!objective) missing.push('execution objective');
+              if (!proofRequired) missing.push('proof requirements');
+              if (missing.length > 0) {
+                core.setFailed(`dry_run=false requires fields: ${missing.join(', ')}`);
+                return;
+              }
+            }
+
+            const packet = {
+              issue_number: issueNumber,
+              issue_title: issue.title,
+              lane,
+              objective,
+              target_files: normalizeList(targetFilesRaw),
+              acceptance_criteria: normalizeList(acceptanceCriteria),
+              proof_required: proofRequired,
+              environment,
+              priority,
+              execution_agent: executionAgent,
+              branch,
+              repo: repository,
+              expected_proofpack: expectedProofpack,
+              execution_mode: executionMode,
+              dry_run: dryRun,
+              claimed_from_status: 'status:queued',
+              moved_to_status: 'status:running'
+            };
+
+            const packetJson = `backend_execution_packet_issue_${issueNumber}.json`;
+            const packetTxt = `backend_execution_packet_issue_${issueNumber}.txt`;
+            fs.writeFileSync(packetJson, JSON.stringify(packet, null, 2));
+            fs.writeFileSync(packetTxt, Object.entries(packet).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(',') : v}`).join('\n') + '\n');
+            fs.copyFileSync(packetJson, 'worker_execution_packet.json');
+            fs.copyFileSync(packetTxt, 'worker_execution_packet.txt');
+
+            const packetComment = [
+              '<!-- autonomy-backend-execution-packet -->',
+              '## Backend Execution Packet',
+              `issue_number: ${packet.issue_number}`,
+              `issue_title: ${packet.issue_title}`,
+              `lane: ${packet.lane}`,
+              `objective: ${packet.objective}`,
+              `target_files: ${packet.target_files.join(', ')}`,
+              `acceptance_criteria: ${packet.acceptance_criteria.join(' | ')}`,
+              `proof_required: ${packet.proof_required}`,
+              `environment: ${packet.environment}`,
+              `priority: ${packet.priority}`,
+              `execution_agent: ${packet.execution_agent}`,
+              `branch: ${packet.branch}`,
+              `repo: ${packet.repo}`,
+              `expected_proofpack: ${packet.expected_proofpack}`,
+              `execution_mode: ${packet.execution_mode}`,
+              `dry_run: ${packet.dry_run}`,
+              `status_transition: ${packet.claimed_from_status} -> ${packet.moved_to_status}`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: packetComment
+            });
+
+            core.setOutput('issue_number', String(issueNumber));
+            core.setOutput('dry_run', String(dryRun));
+            core.setOutput('execution_mode', packet.execution_mode);
+            core.setOutput('packet_json', packetJson);
+            core.setOutput('packet_txt', packetTxt);
+
+      - name: Upload backend execution packet
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-execute-backend-${{ github.run_id }}
+          path: |
+            backend_execution_packet_issue_*.json
+            backend_execution_packet_issue_*.txt
+            worker_execution_packet.json
+            worker_execution_packet.txt
+          if-no-files-found: error

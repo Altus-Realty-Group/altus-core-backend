@@ -1,0 +1,280 @@
+name: worker_finalize_backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Backend issue number to finalize
+        required: true
+        type: string
+      outcome:
+        description: Finalization outcome
+        required: true
+        default: proof-ready
+        type: choice
+        options:
+          - proof-ready
+          - blocked
+          - closed
+      summary:
+        description: Execution summary
+        required: false
+        default: ""
+        type: string
+      changed_files:
+        description: Changed files (newline or comma separated)
+        required: false
+        default: ""
+        type: string
+      commit_sha:
+        description: Commit SHA
+        required: false
+        default: ""
+        type: string
+      pr_url:
+        description: Pull request URL
+        required: false
+        default: ""
+        type: string
+      proof_artifacts:
+        description: Proof artifact paths (newline or comma separated)
+        required: false
+        default: ""
+        type: string
+      blocker_reason:
+        description: Blocker reason
+        required: false
+        default: ""
+        type: string
+      next_required_action:
+        description: Next required action
+        required: false
+        default: ""
+        type: string
+      execution_mode:
+        description: direct or relay-fallback
+        required: false
+        default: direct
+        type: choice
+        options:
+          - direct
+          - relay-fallback
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Emit backend result and finalize status
+        uses: actions/github-script@v7
+        env:
+          INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
+          INPUT_OUTCOME: ${{ inputs.outcome }}
+          INPUT_SUMMARY: ${{ inputs.summary }}
+          INPUT_CHANGED_FILES: ${{ inputs.changed_files }}
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+          INPUT_PR_URL: ${{ inputs.pr_url }}
+          INPUT_PROOF_ARTIFACTS: ${{ inputs.proof_artifacts }}
+          INPUT_BLOCKER_REASON: ${{ inputs.blocker_reason }}
+          INPUT_NEXT_REQUIRED_ACTION: ${{ inputs.next_required_action }}
+          INPUT_EXECUTION_MODE: ${{ inputs.execution_mode }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            const STATUS_LABELS = [
+              'status:queued',
+              'status:running',
+              'status:blocked',
+              'status:proof-ready',
+              'status:closed'
+            ];
+
+            function normalizeList(value) {
+              return (value || '')
+                .split(/\r?\n|,/) 
+                .map(v => v.trim())
+                .filter(Boolean);
+            }
+
+            async function listIssueLabels(issueNumber) {
+              const response = await github.rest.issues.listLabelsOnIssue({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber
+              });
+              return response.data.map(label => label.name);
+            }
+
+            async function setSingleStatus(issueNumber, nextStatus) {
+              const current = await listIssueLabels(issueNumber);
+              for (const name of current) {
+                if (STATUS_LABELS.includes(name) && name !== nextStatus) {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    name
+                  }).catch(() => {});
+                }
+              }
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: [nextStatus]
+              });
+            }
+
+            const issueNumber = Number((process.env.INPUT_ISSUE_NUMBER || '').trim());
+            if (!issueNumber || Number.isNaN(issueNumber)) {
+              core.setFailed('issue_number must be provided and numeric');
+              return;
+            }
+
+            const issueResponse = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+            const issue = issueResponse.data;
+            const labels = issue.labels.map(label => label.name);
+
+            const laneLabels = labels.filter(name => name.startsWith('lane:'));
+            if (laneLabels[0] !== 'lane:be-core') {
+              core.setFailed('worker_finalize_backend only supports lane:be-core tasks');
+              return;
+            }
+
+            const outcome = (process.env.INPUT_OUTCOME || 'proof-ready').trim().toLowerCase();
+            const mappedStatus = {
+              'proof-ready': 'status:proof-ready',
+              blocked: 'status:blocked',
+              closed: 'status:closed'
+            }[outcome];
+
+            if (!mappedStatus) {
+              core.setFailed('outcome must be proof-ready|blocked|closed');
+              return;
+            }
+
+            const currentStatus = labels.find(name => STATUS_LABELS.includes(name)) || '';
+            if (mappedStatus === 'status:proof-ready' && currentStatus !== 'status:running') {
+              core.setFailed(`proof-ready finalization requires current status:running; found ${currentStatus || 'none'}`);
+              return;
+            }
+            if (mappedStatus === 'status:blocked' && currentStatus !== 'status:running') {
+              core.setFailed(`blocked finalization requires current status:running; found ${currentStatus || 'none'}`);
+              return;
+            }
+            if (mappedStatus === 'status:closed' && currentStatus !== 'status:proof-ready') {
+              core.setFailed(`closed finalization requires current status:proof-ready; found ${currentStatus || 'none'}`);
+              return;
+            }
+
+            await setSingleStatus(issueNumber, mappedStatus);
+
+            const result = {
+              issue_number: issueNumber,
+              outcome,
+              summary: (process.env.INPUT_SUMMARY || '').trim(),
+              changed_files: normalizeList(process.env.INPUT_CHANGED_FILES || ''),
+              commit_sha: (process.env.INPUT_COMMIT_SHA || '').trim(),
+              pr_url: (process.env.INPUT_PR_URL || '').trim(),
+              proof_artifacts: normalizeList(process.env.INPUT_PROOF_ARTIFACTS || ''),
+              blocker_reason: (process.env.INPUT_BLOCKER_REASON || '').trim(),
+              next_required_action: (process.env.INPUT_NEXT_REQUIRED_ACTION || '').trim(),
+              execution_mode: (process.env.INPUT_EXECUTION_MODE || 'direct').trim() || 'direct'
+            };
+
+            const handoff = {
+              issue_number: issueNumber,
+              final_status: mappedStatus,
+              outcome: result.outcome,
+              summary: result.summary,
+              commit_sha: result.commit_sha,
+              pr_url: result.pr_url,
+              changed_files: result.changed_files,
+              proof_artifacts: result.proof_artifacts,
+              blocker_reason: result.blocker_reason,
+              next_required_action: result.next_required_action,
+              execution_mode: result.execution_mode
+            };
+
+            const resultJson = `backend_result_packet_issue_${issueNumber}.json`;
+            const resultTxt = `backend_result_packet_issue_${issueNumber}.txt`;
+            const handoffJson = `backend_final_handoff_issue_${issueNumber}.json`;
+            const handoffTxt = `backend_final_handoff_issue_${issueNumber}.txt`;
+
+            fs.writeFileSync(resultJson, JSON.stringify(result, null, 2));
+            fs.writeFileSync(resultTxt, Object.entries(result).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(',') : v}`).join('\n') + '\n');
+            fs.writeFileSync(handoffJson, JSON.stringify(handoff, null, 2));
+            fs.writeFileSync(handoffTxt, Object.entries(handoff).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(',') : v}`).join('\n') + '\n');
+
+            fs.copyFileSync(resultJson, 'worker_result_packet.json');
+            fs.copyFileSync(resultTxt, 'worker_result_packet.txt');
+            fs.copyFileSync(handoffJson, 'worker_final_handoff_packet.json');
+            fs.copyFileSync(handoffTxt, 'worker_final_handoff_packet.txt');
+
+            const resultComment = [
+              '<!-- autonomy-backend-result-packet -->',
+              '## Backend Result Packet',
+              `issue_number: ${result.issue_number}`,
+              `outcome: ${result.outcome}`,
+              `summary: ${result.summary}`,
+              `changed_files: ${result.changed_files.join(', ')}`,
+              `commit_sha: ${result.commit_sha}`,
+              `pr_url: ${result.pr_url}`,
+              `proof_artifacts: ${result.proof_artifacts.join(', ')}`,
+              `blocker_reason: ${result.blocker_reason}`,
+              `next_required_action: ${result.next_required_action}`,
+              `execution_mode: ${result.execution_mode}`
+            ].join('\n');
+
+            const handoffComment = [
+              '<!-- autonomy-backend-final-handoff -->',
+              '## Backend Final Handoff',
+              `issue_number: ${handoff.issue_number}`,
+              `final_status: ${handoff.final_status}`,
+              `outcome: ${handoff.outcome}`,
+              `summary: ${handoff.summary}`,
+              `changed_files: ${handoff.changed_files.join(', ')}`,
+              `commit_sha: ${handoff.commit_sha}`,
+              `pr_url: ${handoff.pr_url}`,
+              `proof_artifacts: ${handoff.proof_artifacts.join(', ')}`,
+              `blocker_reason: ${handoff.blocker_reason}`,
+              `next_required_action: ${handoff.next_required_action}`,
+              `execution_mode: ${handoff.execution_mode}`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: resultComment
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: handoffComment
+            });
+
+      - name: Upload backend result and handoff artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-finalize-backend-${{ github.run_id }}
+          path: |
+            backend_result_packet_issue_*.json
+            backend_result_packet_issue_*.txt
+            backend_final_handoff_issue_*.json
+            backend_final_handoff_issue_*.txt
+            worker_result_packet.json
+            worker_result_packet.txt
+            worker_final_handoff_packet.json
+            worker_final_handoff_packet.txt
+          if-no-files-found: error
