@@ -171,11 +171,11 @@ Finalization must preserve exactly one `status:*` label.
 
 - Repo-relative proof folder is required: `docs/proofpacks/<YYYY-MM-DD>_be-core_issue-<issue_number>`.
 - `worker_execute_backend.yml` must emit, at minimum:
-	- `proof_manifest.json`
-	- `route_and_commit.txt`
-	- `route_raw_response.txt`
-	- `telemetry_evidence.txt`
-	- `persistence_evidence.txt`
+  - `proof_manifest.json`
+  - `route_and_commit.txt`
+  - `route_raw_response.txt`
+  - `telemetry_evidence.txt`
+  - `persistence_evidence.txt`
 - Route proof target defaults to: `GET /api/assets/metrics`.
 
 ## Dry-Run Honesty Rule

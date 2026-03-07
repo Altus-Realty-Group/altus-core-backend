@@ -1,4 +1,5 @@
-AUTONOMY WORKER BRIDGE V1
+# AUTONOMY WORKER BRIDGE V1
+
 Purpose
 
 Autonomy Worker Bridge V1 extends the control plane from intake and routing into honest execution lifecycle management.
@@ -313,7 +314,7 @@ current_labels: lane:be-core, status:running, agent:vs
 requested_by: operator
 commit_branch: autonomy/issue-123
 expected_result_mode: success|blocked|failed|proof-ready
-proofpack_expectation: docs/proofpacks/<YYYY-MM-DD>_be-core_autonomy-02
+proofpack_expectation: docs/proofpacks/&lt;YYYY-MM-DD&gt;_be-core_autonomy-02
 dry_run: true
 
 Worker Result Comment Output

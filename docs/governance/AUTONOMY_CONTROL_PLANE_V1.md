@@ -5,6 +5,7 @@
 Autonomy Control Plane V1 installs the first honest autonomous work layer for Altus.
 
 What it does:
+
 - structured task intake through GitHub issue forms
 - normalized lane and agent routing labels
 - workflow_dispatch manual task injection
@@ -15,6 +16,7 @@ What it does:
 - OIDC validation workflow for Azure posture
 
 What it does **not** do yet:
+
 - self-author code without an execution worker
 - autonomously merge PRs
 - autonomously deploy to production without an existing approved workflow
@@ -36,12 +38,7 @@ What it does **not** do yet:
 7. `worker_bridge.yml` remains available as relay fallback and compatibility bridge.
 8. `task_status_reconcile.yml` enforces exactly one `status:*` label.
 9. Proof artifacts are collected by `proofpack_collect.yml`.
-10. Status progresses from:
-   - `status:queued`
-   - `status:running`
-   - `status:blocked`
-   - `status:proof-ready`
-   - `status:closed`
+10. Status progresses across `status:queued`, `status:running`, `status:blocked`, `status:proof-ready`, and `status:closed`.
 
 ## Backend Standard Execution Model
 
@@ -63,14 +60,13 @@ CD receives final validated result
 - Dion relay is fallback transport only.
 - Manual relay is not the default backend path.
 - Proof remains mandatory for completion.
-- Direct backend proof path is deterministic and repo-relative:
-   - `docs/proofpacks/<YYYY-MM-DD>_be-core_issue-<issue_number>`
-- Default route exercised for hardened backend proof emission:
-   - `GET /api/assets/metrics`
+- Direct backend proof path is deterministic and repo-relative: `docs/proofpacks/<YYYY-MM-DD>_be-core_issue-<issue_number>`
+- Default route exercised for hardened backend proof emission: `GET /api/assets/metrics`
 
 ## Labels
 
 ### Lane Labels
+
 - `lane:be-core`
 - `lane:be-ecc`
 - `lane:fe-ecc`
@@ -79,6 +75,7 @@ CD receives final validated result
 - `lane:cd`
 
 ### Status Labels
+
 - `status:queued`
 - `status:running`
 - `status:blocked`
@@ -86,6 +83,7 @@ CD receives final validated result
 - `status:closed`
 
 ### Agent Labels
+
 - `agent:vs`
 - `agent:supabase`
 - `agent:antigravity`
@@ -105,6 +103,7 @@ CD receives final validated result
 ## Proof Pack Artifact Rules
 
 The proof collector uploads, when present:
+
 - `ci_proof.json`
 - `ci_proof.txt`
 - raw curl output
@@ -117,16 +116,19 @@ Proof collector is additive. It does not change deploy behavior.
 ## Human vs Agent Responsibilities
 
 ### Human
+
 - opens structured task issues
 - reviews proof
 - decides whether to advance or close work
 
 ### CD / Governance
+
 - authorizes scope
 - accepts or rejects proof
 - escalates blocked work
 
 ### Execution Agents
+
 - perform the work
 - return raw outputs
 - do not redefine scope
@@ -134,11 +136,13 @@ Proof collector is additive. It does not change deploy behavior.
 ## Azure Auth Posture
 
 Preferred posture:
+
 - GitHub Actions OIDC
 - Azure federated credentials
 - no long-lived publish profile when avoidable
 
 Validation workflow:
+
 - `.github/workflows/azure_oidc_validate.yml`
 
 ## Existing Deploy Safety
@@ -148,37 +152,49 @@ They must not modify or replace the current backend deploy workflows.
 
 ## Example Structured Task Issue Body
 
+```markdown
 ### lane
+
 be-core
 
 ### task_type
+
 infra
 
 ### objective
+
 Install autonomy router and proof collector.
 
 ### target_files
+
 .github/workflows/autonomy_router.yml
 .github/workflows/proofpack_collect.yml
 docs/governance/AUTONOMY_CONTROL_PLANE_V1.md
 
 ### acceptance_criteria
+
 Router applies normalized labels.
 Proof artifact bundle uploads.
 
 ### proof_required
+
 A-E
 
 ### environment
+
 staging
 
 ### priority
+
 p1
 
 ### execution_agent
+
 vs
+```
 
 ## Expected Labels
+
 - `lane:be-core`
 - `status:queued`
 - `agent:vs`
@@ -186,7 +202,9 @@ vs
 ## Expected Router Comment Output
 
 <!-- autonomy-router:normalized-task -->
+```markdown
 ## Autonomy Router Packet
+
 lane: be-core
 task_type: infra
 objective: Install autonomy router and proof collector.
@@ -201,6 +219,8 @@ priority: p1
 execution_agent: vs
 
 ## Expected Labels
+
 - lane:be-core
 - status:queued
 - agent:vs
+```
