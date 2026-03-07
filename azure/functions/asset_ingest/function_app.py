@@ -331,10 +331,10 @@ def _get_fallback_link_rows(
     raw_rows = _supabase_get_rows(
         "asset_data_raw",
         {
-            "select": "id,asset_id,source,payload_jsonb,created_at",
+            "select": "id,asset_id,source,payload_jsonb,fetched_at",
             "asset_id": f"eq.{parent_asset_id}",
             "source": f"eq.{source_value}",
-            "order": "created_at.desc",
+            "order": "fetched_at.desc",
             "limit": "200",
         },
         config,
