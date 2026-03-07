@@ -28,6 +28,9 @@ _ALLOWED_LINK_TYPES = {
 }
 _LINK_SOURCE_PREFIX = "ASSET_LINK::"
 _LINK_DELETE_SOURCE_PREFIX = "ASSET_LINK_DELETE::"
+_ARCHIVE_SOURCE_PREFIX = "ASSET_ARCHIVE::"
+_RESTORE_SOURCE_PREFIX = "ASSET_RESTORE::"
+_DELETE_SOURCE_PREFIX = "ASSET_DELETE::"
 
 
 class RuntimeConfig:
@@ -407,6 +410,22 @@ def _asset_restore_internal_error() -> func.HttpResponse:
     )
 
 
+def _asset_audit_internal_error() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": "ASSET_AUDIT_INTERNAL",
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
 def _extract_link_payload(req: func.HttpRequest) -> tuple[dict[str, str] | None, func.HttpResponse | None]:
     try:
         body = req.get_json()
@@ -642,6 +661,15 @@ def _restore_bad_request() -> func.HttpResponse:
     )
 
 
+def _audit_bad_request() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps({"ok": False, "error": "Invalid request"}),
+        status_code=400,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
 def _timeline_derive_event_type(row: dict[str, Any], raw_ingest_row_id: str | None) -> str:
     source_value = str(row.get("source") or "")
     payload_value = row.get("payload_jsonb")
@@ -812,6 +840,118 @@ def _build_timeline_items(raw_rows: list[dict[str, Any]], limit: int, offset: in
                 "event_type": _timeline_derive_event_type(row, raw_ingest_row_id),
                 "source": row.get("source"),
                 "occurred_at": row.get("fetched_at"),
+                "payload": row.get("payload_jsonb"),
+            }
+        )
+
+    return all_items[offset: offset + limit]
+
+
+def _record_asset_audit_event(
+    organization_id: str,
+    asset_id: str,
+    source: str,
+    payload: dict[str, Any],
+    config: RuntimeConfig,
+) -> None:
+    _insert_supabase_row(
+        "asset_data_raw",
+        {
+            "asset_id": asset_id,
+            "source": source,
+            "payload_jsonb": payload,
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+        },
+        config,
+    )
+
+
+def _try_record_asset_audit_event(
+    organization_id: str,
+    asset_id: str,
+    source: str,
+    payload: dict[str, Any],
+    config: RuntimeConfig,
+) -> None:
+    try:
+        _record_asset_audit_event(
+            organization_id=organization_id,
+            asset_id=asset_id,
+            source=source,
+            payload=payload,
+            config=config,
+        )
+    except Exception:
+        logging.exception("Asset audit event record failed")
+
+
+def _audit_derive_event_type(row: dict[str, Any], raw_ingest_row_id: str | None) -> str:
+    source_value = str(row.get("source") or "")
+    payload_value = row.get("payload_jsonb")
+    payload_record_type = payload_value.get("record_type") if isinstance(payload_value, dict) else None
+
+    if payload_record_type == "asset_link_delete" or source_value.startswith(_LINK_DELETE_SOURCE_PREFIX):
+        return "asset_link_delete"
+
+    if payload_record_type == "asset_link" or source_value.startswith(_LINK_SOURCE_PREFIX):
+        return "asset_link_create"
+
+    if payload_record_type in {"asset_archived", "asset_archive"} or source_value.startswith(_ARCHIVE_SOURCE_PREFIX):
+        return "asset_archived"
+
+    if payload_record_type in {"asset_restored", "asset_restore"} or source_value.startswith(_RESTORE_SOURCE_PREFIX):
+        return "asset_restored"
+
+    if payload_record_type in {"asset_deleted", "asset_delete"} or source_value.startswith(_DELETE_SOURCE_PREFIX):
+        return "asset_deleted"
+
+    if raw_ingest_row_id and str(row.get("id")) == raw_ingest_row_id:
+        return "raw_ingest"
+
+    return "enrichment_write"
+
+
+def _build_audit_items(
+    raw_rows: list[dict[str, Any]],
+    limit: int,
+    offset: int,
+    event_type_filter: str | None,
+) -> list[dict[str, Any]]:
+    non_link_and_non_lifecycle_rows: list[dict[str, Any]] = []
+    for row in raw_rows:
+        source_value = str(row.get("source") or "")
+        payload_value = row.get("payload_jsonb")
+        payload_record_type = payload_value.get("record_type") if isinstance(payload_value, dict) else None
+        if payload_record_type in {"asset_link", "asset_link_delete", "asset_archived", "asset_archive", "asset_restored", "asset_restore", "asset_deleted", "asset_delete"}:
+            continue
+        if source_value.startswith(
+            (
+                _LINK_SOURCE_PREFIX,
+                _LINK_DELETE_SOURCE_PREFIX,
+                _ARCHIVE_SOURCE_PREFIX,
+                _RESTORE_SOURCE_PREFIX,
+                _DELETE_SOURCE_PREFIX,
+            )
+        ):
+            continue
+        non_link_and_non_lifecycle_rows.append(row)
+
+    raw_ingest_row_id: str | None = None
+    if non_link_and_non_lifecycle_rows:
+        oldest_row = min(non_link_and_non_lifecycle_rows, key=lambda row: str(row.get("fetched_at") or ""))
+        raw_ingest_row_id = str(oldest_row.get("id"))
+
+    all_items: list[dict[str, Any]] = []
+    for row in raw_rows:
+        event_type = _audit_derive_event_type(row, raw_ingest_row_id)
+        if event_type_filter and event_type != event_type_filter:
+            continue
+        all_items.append(
+            {
+                "event_type": event_type,
+                "occurred_at": row.get("fetched_at"),
+                "source": row.get("source"),
+                "asset_id": row.get("asset_id"),
                 "payload": row.get("payload_jsonb"),
             }
         )
@@ -1446,6 +1586,19 @@ def asset_archive(req: func.HttpRequest) -> func.HttpResponse:
             config=config,
         )
 
+        _try_record_asset_audit_event(
+            organization_id=organization_id,
+            asset_id=normalized_asset_id,
+            source=f"{_ARCHIVE_SOURCE_PREFIX}{normalized_asset_id}",
+            payload={
+                "record_type": "asset_archived",
+                "asset_id": normalized_asset_id,
+                "organization_id": organization_id,
+                "status": "ARCHIVED",
+            },
+            config=config,
+        )
+
         return func.HttpResponse(
             json.dumps(
                 {
@@ -1522,6 +1675,19 @@ def asset_restore(req: func.HttpRequest) -> func.HttpResponse:
             organization_id=organization_id,
             asset_id=normalized_asset_id,
             updates={"status": "ACTIVE"},
+            config=config,
+        )
+
+        _try_record_asset_audit_event(
+            organization_id=organization_id,
+            asset_id=normalized_asset_id,
+            source=f"{_RESTORE_SOURCE_PREFIX}{normalized_asset_id}",
+            payload={
+                "record_type": "asset_restored",
+                "asset_id": normalized_asset_id,
+                "organization_id": organization_id,
+                "status": "ACTIVE",
+            },
             config=config,
         )
 
@@ -1796,6 +1962,106 @@ def asset_raw_list(req: func.HttpRequest) -> func.HttpResponse:
     except Exception:
         logging.exception("Asset raw list failed")
         return _asset_raw_internal_error()
+
+
+@app.route(route="assets/{asset_id}/audit", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def asset_audit(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        asset_id_raw = req.route_params.get("asset_id")
+        if not asset_id_raw:
+            return _audit_bad_request()
+
+        try:
+            normalized_asset_id = str(uuid.UUID(asset_id_raw))
+        except ValueError:
+            return _audit_bad_request()
+
+        limit_raw = req.params.get("limit", "50")
+        offset_raw = req.params.get("offset", "0")
+        event_type_raw = (req.params.get("event_type") or "").strip()
+
+        try:
+            limit = int(limit_raw)
+            offset = int(offset_raw)
+        except ValueError:
+            return _audit_bad_request()
+
+        if limit < 1 or limit > 200 or offset < 0:
+            return _audit_bad_request()
+
+        allowed_event_types = {
+            "raw_ingest",
+            "enrichment_write",
+            "asset_link_create",
+            "asset_link_delete",
+            "asset_archived",
+            "asset_restored",
+            "asset_deleted",
+        }
+        event_type_filter: str | None = None
+        if event_type_raw:
+            if event_type_raw not in allowed_event_types:
+                return _audit_bad_request()
+            event_type_filter = event_type_raw
+
+        config = _get_config()
+        assets = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id",
+                "organization_id": f"eq.{organization_id}",
+                "id": f"eq.{normalized_asset_id}",
+                "limit": "1",
+            },
+            config,
+        )
+
+        if not assets:
+            return func.HttpResponse(
+                json.dumps({"ok": False, "code": "ASSET_NOT_FOUND"}),
+                status_code=404,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        raw_rows = _supabase_get_rows(
+            "asset_data_raw",
+            {
+                "select": "id,asset_id,source,payload_jsonb,fetched_at",
+                "asset_id": f"eq.{normalized_asset_id}",
+                "order": "fetched_at.desc",
+                "limit": "1000",
+            },
+            config,
+        )
+
+        items = _build_audit_items(
+            raw_rows=raw_rows,
+            limit=limit,
+            offset=offset,
+            event_type_filter=event_type_filter,
+        )
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "items": items,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset audit failed")
+        return _asset_audit_internal_error()
 
 
 @app.route(route="assets/bulk-resolve", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
