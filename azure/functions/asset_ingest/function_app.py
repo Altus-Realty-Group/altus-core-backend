@@ -293,6 +293,22 @@ def _asset_timeline_internal_error() -> func.HttpResponse:
     )
 
 
+def _asset_snapshot_internal_error() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": "ASSET_SNAPSHOT_INTERNAL",
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
 def _extract_link_payload(req: func.HttpRequest) -> tuple[dict[str, str] | None, func.HttpResponse | None]:
     try:
         body = req.get_json()
@@ -483,6 +499,15 @@ def _timeline_bad_request() -> func.HttpResponse:
     )
 
 
+def _snapshot_bad_request() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps({"ok": False, "error": "Invalid request"}),
+        status_code=400,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
 def _timeline_derive_event_type(row: dict[str, Any], raw_ingest_row_id: str | None) -> str:
     source_value = str(row.get("source") or "")
     payload_value = row.get("payload_jsonb")
@@ -498,6 +523,131 @@ def _timeline_derive_event_type(row: dict[str, Any], raw_ingest_row_id: str | No
         return "raw_ingest"
 
     return "enrichment_write"
+
+
+def _build_timeline_items(raw_rows: list[dict[str, Any]], limit: int, offset: int) -> list[dict[str, Any]]:
+    non_link_rows: list[dict[str, Any]] = []
+    for row in raw_rows:
+        source_value = str(row.get("source") or "")
+        payload_value = row.get("payload_jsonb")
+        payload_record_type = payload_value.get("record_type") if isinstance(payload_value, dict) else None
+        if payload_record_type in {"asset_link", "asset_link_delete"}:
+            continue
+        if source_value.startswith(_LINK_SOURCE_PREFIX) or source_value.startswith(_LINK_DELETE_SOURCE_PREFIX):
+            continue
+        non_link_rows.append(row)
+
+    raw_ingest_row_id: str | None = None
+    if non_link_rows:
+        oldest_non_link_row = min(non_link_rows, key=lambda row: str(row.get("fetched_at") or ""))
+        raw_ingest_row_id = str(oldest_non_link_row.get("id"))
+
+    all_items: list[dict[str, Any]] = []
+    for row in raw_rows:
+        all_items.append(
+            {
+                "event_type": _timeline_derive_event_type(row, raw_ingest_row_id),
+                "source": row.get("source"),
+                "occurred_at": row.get("fetched_at"),
+                "payload": row.get("payload_jsonb"),
+            }
+        )
+
+    return all_items[offset: offset + limit]
+
+
+def _get_snapshot_links_from_fallback(asset_id: str, config: RuntimeConfig) -> list[dict[str, Any]]:
+    raw_rows = _supabase_get_rows(
+        "asset_data_raw",
+        {
+            "select": "id,asset_id,source,payload_jsonb,fetched_at",
+            "asset_id": f"eq.{asset_id}",
+            "order": "fetched_at.desc",
+            "limit": "1000",
+        },
+        config,
+    )
+
+    deleted_keys: set[tuple[str, str, str]] = set()
+    links: list[dict[str, Any]] = []
+    seen_keys: set[tuple[str, str, str]] = set()
+
+    for row in raw_rows:
+        payload = row.get("payload_jsonb")
+        if not isinstance(payload, dict):
+            continue
+
+        parent_asset_id = payload.get("parent_asset_id")
+        child_asset_id = payload.get("child_asset_id")
+        link_type = payload.get("link_type")
+        if not isinstance(parent_asset_id, str) or not isinstance(child_asset_id, str) or not isinstance(link_type, str):
+            continue
+
+        link_key = (parent_asset_id, child_asset_id, link_type)
+        source_value = str(row.get("source") or "")
+        record_type = payload.get("record_type")
+
+        if record_type == "asset_link_delete" or source_value.startswith(_LINK_DELETE_SOURCE_PREFIX):
+            deleted_keys.add(link_key)
+            continue
+
+        if not (record_type == "asset_link" or source_value.startswith(_LINK_SOURCE_PREFIX)):
+            continue
+
+        if link_key in deleted_keys or link_key in seen_keys:
+            continue
+
+        seen_keys.add(link_key)
+        links.append(
+            {
+                "id": row.get("id"),
+                "parent_asset_id": parent_asset_id,
+                "child_asset_id": child_asset_id,
+                "link_type": link_type,
+            }
+        )
+
+    return links
+
+
+def _get_snapshot_links(asset_id: str, organization_id: str, config: RuntimeConfig) -> list[dict[str, Any]]:
+    try:
+        parent_links = _supabase_get_rows(
+            "asset_links",
+            {
+                "select": "id,parent_asset_id,child_asset_id,link_type",
+                "organization_id": f"eq.{organization_id}",
+                "parent_asset_id": f"eq.{asset_id}",
+                "order": "id.desc",
+                "limit": "200",
+            },
+            config,
+        )
+        child_links = _supabase_get_rows(
+            "asset_links",
+            {
+                "select": "id,parent_asset_id,child_asset_id,link_type",
+                "organization_id": f"eq.{organization_id}",
+                "child_asset_id": f"eq.{asset_id}",
+                "order": "id.desc",
+                "limit": "200",
+            },
+            config,
+        )
+
+        merged: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        for row in parent_links + child_links:
+            row_id = str(row.get("id"))
+            if row_id in seen_ids:
+                continue
+            seen_ids.add(row_id)
+            merged.append(row)
+        return merged
+    except RuntimeError as exc:
+        if _is_missing_asset_links_table_error(exc):
+            return _get_snapshot_links_from_fallback(asset_id, config)
+        raise
 
 
 @app.route(route="assets", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
@@ -761,34 +911,7 @@ def asset_timeline(req: func.HttpRequest) -> func.HttpResponse:
             config,
         )
 
-        non_link_rows: list[dict[str, Any]] = []
-        for row in raw_rows:
-            source_value = str(row.get("source") or "")
-            payload_value = row.get("payload_jsonb")
-            payload_record_type = payload_value.get("record_type") if isinstance(payload_value, dict) else None
-            if payload_record_type in {"asset_link", "asset_link_delete"}:
-                continue
-            if source_value.startswith(_LINK_SOURCE_PREFIX) or source_value.startswith(_LINK_DELETE_SOURCE_PREFIX):
-                continue
-            non_link_rows.append(row)
-
-        raw_ingest_row_id: str | None = None
-        if non_link_rows:
-            oldest_non_link_row = min(non_link_rows, key=lambda row: str(row.get("fetched_at") or ""))
-            raw_ingest_row_id = str(oldest_non_link_row.get("id"))
-
-        all_items: list[dict[str, Any]] = []
-        for row in raw_rows:
-            all_items.append(
-                {
-                    "event_type": _timeline_derive_event_type(row, raw_ingest_row_id),
-                    "source": row.get("source"),
-                    "occurred_at": row.get("fetched_at"),
-                    "payload": row.get("payload_jsonb"),
-                }
-            )
-
-        page_items = all_items[offset: offset + limit]
+        page_items = _build_timeline_items(raw_rows, limit=limit, offset=offset)
 
         return func.HttpResponse(
             json.dumps(
@@ -806,6 +929,102 @@ def asset_timeline(req: func.HttpRequest) -> func.HttpResponse:
     except Exception:
         logging.exception("Asset timeline failed")
         return _asset_timeline_internal_error()
+
+
+@app.route(route="assets/{asset_id}/snapshot", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def asset_snapshot(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        asset_id_raw = req.route_params.get("asset_id")
+        if not asset_id_raw:
+            return _snapshot_bad_request()
+
+        try:
+            normalized_asset_id = str(uuid.UUID(asset_id_raw))
+        except ValueError:
+            return _snapshot_bad_request()
+
+        config = _get_config()
+        assets = _supabase_get_rows(
+            "assets",
+            {
+                "select": "*",
+                "id": f"eq.{normalized_asset_id}",
+                "organization_id": f"eq.{organization_id}",
+                "limit": "1",
+            },
+            config,
+        )
+
+        if not assets:
+            return func.HttpResponse(
+                json.dumps({"ok": False, "code": "ASSET_NOT_FOUND"}),
+                status_code=404,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        latest_raw: dict[str, Any] | None = None
+        raw_queries = [
+            {
+                "select": "*",
+                "asset_id": f"eq.{normalized_asset_id}",
+                "order": "fetched_at.desc",
+                "limit": "1",
+            },
+            {
+                "select": "*",
+                "asset_id": f"eq.{normalized_asset_id}",
+                "order": "id.desc",
+                "limit": "1",
+            },
+        ]
+        for raw_query in raw_queries:
+            try:
+                raw_rows = _supabase_get_rows("asset_data_raw", raw_query, config)
+                latest_raw = raw_rows[0] if raw_rows else None
+                break
+            except Exception:
+                continue
+
+        links = _get_snapshot_links(
+            asset_id=normalized_asset_id,
+            organization_id=organization_id,
+            config=config,
+        )
+
+        timeline_raw_rows = _supabase_get_rows(
+            "asset_data_raw",
+            {
+                "select": "id,asset_id,source,payload_jsonb,fetched_at",
+                "asset_id": f"eq.{normalized_asset_id}",
+                "order": "fetched_at.desc",
+                "limit": "200",
+            },
+            config,
+        )
+        timeline = _build_timeline_items(timeline_raw_rows, limit=10, offset=0)
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "asset": assets[0],
+                    "latest_raw": latest_raw,
+                    "links": links,
+                    "timeline": timeline,
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset snapshot failed")
+        return _asset_snapshot_internal_error()
 
 
 @app.route(route="assets/match", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
