@@ -14,6 +14,16 @@ from azure.keyvault.secrets import SecretClient
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 _ALLOWED_SOURCES = {"CORELOGIC", "MLS", "DOORLOOP", "MANUAL", "OTHER"}
+_ALLOWED_LINK_TYPES = {
+    "parcel_structure",
+    "structure_unit",
+    "asset_deal",
+    "portfolio_asset",
+    "deal_asset",
+    "asset_portfolio",
+    "parcel_unit",
+    "structure_deal",
+}
 
 
 class RuntimeConfig:
@@ -247,6 +257,61 @@ def _asset_match_internal_error() -> func.HttpResponse:
         headers=_build_headers(),
         mimetype="application/json",
     )
+
+
+def _asset_link_internal_error() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": "ASSET_LINK_INTERNAL",
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _extract_link_payload(req: func.HttpRequest) -> tuple[dict[str, str] | None, func.HttpResponse | None]:
+    try:
+        body = req.get_json()
+    except ValueError:
+        return None, _bad_request("Invalid payload")
+
+    if not isinstance(body, dict):
+        return None, _bad_request("Invalid payload")
+
+    parent_asset_id_raw = body.get("parent_asset_id")
+    child_asset_id_raw = body.get("child_asset_id")
+    link_type_raw = body.get("link_type")
+
+    if not isinstance(parent_asset_id_raw, str) or not isinstance(child_asset_id_raw, str) or not isinstance(link_type_raw, str):
+        return None, _bad_request("Invalid payload")
+
+    try:
+        parent_asset_id = str(uuid.UUID(parent_asset_id_raw))
+        child_asset_id = str(uuid.UUID(child_asset_id_raw))
+    except ValueError:
+        return None, _bad_request("Invalid payload")
+
+    link_type = link_type_raw.strip()
+    if not link_type:
+        return None, _bad_request("Invalid payload")
+
+    if parent_asset_id == child_asset_id:
+        return None, _bad_request("Invalid payload")
+
+    if link_type not in _ALLOWED_LINK_TYPES:
+        return None, _bad_request("Invalid payload")
+
+    return {
+        "parent_asset_id": parent_asset_id,
+        "child_asset_id": child_asset_id,
+        "link_type": link_type,
+    }, None
 
 
 @app.route(route="assets", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
@@ -534,6 +599,171 @@ def assets_match(req: func.HttpRequest) -> func.HttpResponse:
     except Exception:
         logging.exception("Asset match failed")
         return _asset_match_internal_error()
+
+
+@app.route(route="assets/link", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def assets_link_create(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        payload, payload_error = _extract_link_payload(req)
+        if payload_error is not None:
+            return payload_error
+
+        parent_asset_id = payload["parent_asset_id"]
+        child_asset_id = payload["child_asset_id"]
+        link_type = payload["link_type"]
+        config = _get_config()
+
+        parent_rows = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id",
+                "organization_id": f"eq.{organization_id}",
+                "id": f"eq.{parent_asset_id}",
+                "limit": "1",
+            },
+            config,
+        )
+        if not parent_rows:
+            return _bad_request("Invalid payload")
+
+        child_rows = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id",
+                "organization_id": f"eq.{organization_id}",
+                "id": f"eq.{child_asset_id}",
+                "limit": "1",
+            },
+            config,
+        )
+        if not child_rows:
+            return _bad_request("Invalid payload")
+
+        existing_rows = _supabase_get_rows(
+            "asset_links",
+            {
+                "select": "id,parent_asset_id,child_asset_id,link_type",
+                "organization_id": f"eq.{organization_id}",
+                "parent_asset_id": f"eq.{parent_asset_id}",
+                "child_asset_id": f"eq.{child_asset_id}",
+                "link_type": f"eq.{link_type}",
+                "limit": "1",
+            },
+            config,
+        )
+
+        if existing_rows:
+            existing_row = existing_rows[0]
+            return func.HttpResponse(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "link_id": existing_row.get("id"),
+                        "parent_asset_id": existing_row.get("parent_asset_id"),
+                        "child_asset_id": existing_row.get("child_asset_id"),
+                        "link_type": existing_row.get("link_type"),
+                    }
+                ),
+                status_code=200,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        created_row = _insert_supabase_row(
+            "asset_links",
+            {
+                "organization_id": organization_id,
+                "parent_asset_id": parent_asset_id,
+                "child_asset_id": child_asset_id,
+                "link_type": link_type,
+            },
+            config,
+        )
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "link_id": created_row.get("id"),
+                    "parent_asset_id": created_row.get("parent_asset_id"),
+                    "child_asset_id": created_row.get("child_asset_id"),
+                    "link_type": created_row.get("link_type"),
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset link create failed")
+        return _asset_link_internal_error()
+
+
+@app.route(route="assets/link", methods=["DELETE"], auth_level=func.AuthLevel.ANONYMOUS)
+def assets_link_delete(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        payload, payload_error = _extract_link_payload(req)
+        if payload_error is not None:
+            return payload_error
+
+        parent_asset_id = payload["parent_asset_id"]
+        child_asset_id = payload["child_asset_id"]
+        link_type = payload["link_type"]
+        config = _get_config()
+
+        matching_rows = _supabase_get_rows(
+            "asset_links",
+            {
+                "select": "id,parent_asset_id,child_asset_id,link_type",
+                "organization_id": f"eq.{organization_id}",
+                "parent_asset_id": f"eq.{parent_asset_id}",
+                "child_asset_id": f"eq.{child_asset_id}",
+                "link_type": f"eq.{link_type}",
+                "limit": "1",
+            },
+            config,
+        )
+
+        if not matching_rows:
+            return func.HttpResponse(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "code": "ASSET_LINK_NOT_FOUND",
+                    }
+                ),
+                status_code=404,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        _delete_supabase_row_by_id("asset_links", str(matching_rows[0].get("id")), config)
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "deleted": True,
+                    "parent_asset_id": parent_asset_id,
+                    "child_asset_id": child_asset_id,
+                    "link_type": link_type,
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset link delete failed")
+        return _asset_link_internal_error()
 
 
 @app.route(route="assets/ingest", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
