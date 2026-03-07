@@ -391,6 +391,22 @@ def _asset_delete_internal_error() -> func.HttpResponse:
     )
 
 
+def _asset_restore_internal_error() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": "ASSET_RESTORE_INTERNAL",
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
 def _extract_link_payload(req: func.HttpRequest) -> tuple[dict[str, str] | None, func.HttpResponse | None]:
     try:
         body = req.get_json()
@@ -609,6 +625,15 @@ def _export_bad_request() -> func.HttpResponse:
 
 
 def _delete_bad_request() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps({"ok": False, "error": "Invalid request"}),
+        status_code=400,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _restore_bad_request() -> func.HttpResponse:
     return func.HttpResponse(
         json.dumps({"ok": False, "error": "Invalid request"}),
         status_code=400,
@@ -1029,6 +1054,8 @@ def assets_list(req: func.HttpRequest) -> func.HttpResponse:
         status_value = req.params.get("status")
         if status_value:
             params["status"] = f"eq.{status_value}"
+        else:
+            params["status"] = "neq.ARCHIVED"
 
         asset_type_value = req.params.get("asset_type")
         if asset_type_value:
@@ -1088,6 +1115,7 @@ def assets_search(req: func.HttpRequest) -> func.HttpResponse:
         params: dict[str, str] = {
             "select": "id,organization_id,asset_type,status,display_name,address_canonical,apn,clip,created_at,updated_at",
             "organization_id": f"eq.{organization_id}",
+            "status": "neq.ARCHIVED",
             "order": "created_at.desc",
             "limit": str(limit),
             "offset": str(offset),
@@ -1156,6 +1184,8 @@ def assets_export(req: func.HttpRequest) -> func.HttpResponse:
         status_value = req.params.get("status")
         if status_value:
             params["status"] = f"eq.{status_value}"
+        else:
+            params["status"] = "neq.ARCHIVED"
 
         asset_type_value = req.params.get("asset_type")
         if asset_type_value:
@@ -1237,6 +1267,7 @@ def asset_detail(req: func.HttpRequest) -> func.HttpResponse:
                 "select": "*",
                 "id": f"eq.{normalized_asset_id}",
                 "organization_id": f"eq.{organization_id}",
+                "status": "neq.ARCHIVED",
                 "limit": "1",
             },
             config,
@@ -1364,6 +1395,154 @@ def asset_delete(req: func.HttpRequest) -> func.HttpResponse:
         return _asset_delete_internal_error()
 
 
+@app.route(route="assets/{asset_id}/archive", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def asset_archive(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        asset_id_raw = req.route_params.get("asset_id")
+        if not asset_id_raw:
+            return _restore_bad_request()
+
+        try:
+            normalized_asset_id = str(uuid.UUID(asset_id_raw))
+        except ValueError:
+            return _restore_bad_request()
+
+        config = _get_config()
+        assets = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id,status",
+                "organization_id": f"eq.{organization_id}",
+                "id": f"eq.{normalized_asset_id}",
+                "limit": "1",
+            },
+            config,
+        )
+        if not assets:
+            return func.HttpResponse(
+                json.dumps({"ok": False, "code": "ASSET_NOT_FOUND"}),
+                status_code=404,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        current_status = str(assets[0].get("status") or "")
+        if current_status == "ARCHIVED":
+            return func.HttpResponse(
+                json.dumps({"ok": False, "code": "ASSET_STATE_CONFLICT"}),
+                status_code=409,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        _update_asset_row(
+            organization_id=organization_id,
+            asset_id=normalized_asset_id,
+            updates={"status": "ARCHIVED"},
+            config=config,
+        )
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "archived": True,
+                    "asset_id": normalized_asset_id,
+                    "status": "ARCHIVED",
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset archive failed")
+        return _asset_restore_internal_error()
+
+
+@app.route(route="assets/{asset_id}/restore", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def asset_restore(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        asset_id_raw = req.route_params.get("asset_id")
+        if not asset_id_raw:
+            return _restore_bad_request()
+
+        try:
+            normalized_asset_id = str(uuid.UUID(asset_id_raw))
+        except ValueError:
+            return _restore_bad_request()
+
+        config = _get_config()
+        archived_assets = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id,status",
+                "organization_id": f"eq.{organization_id}",
+                "id": f"eq.{normalized_asset_id}",
+                "status": "eq.ARCHIVED",
+                "limit": "1",
+            },
+            config,
+        )
+        if not archived_assets:
+            existing_assets = _supabase_get_rows(
+                "assets",
+                {
+                    "select": "id",
+                    "organization_id": f"eq.{organization_id}",
+                    "id": f"eq.{normalized_asset_id}",
+                    "limit": "1",
+                },
+                config,
+            )
+            if existing_assets:
+                return func.HttpResponse(
+                    json.dumps({"ok": False, "code": "ASSET_STATE_CONFLICT"}),
+                    status_code=409,
+                    headers=_build_headers(),
+                    mimetype="application/json",
+                )
+
+            return func.HttpResponse(
+                json.dumps({"ok": False, "code": "ASSET_NOT_FOUND"}),
+                status_code=404,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        _update_asset_row(
+            organization_id=organization_id,
+            asset_id=normalized_asset_id,
+            updates={"status": "ACTIVE"},
+            config=config,
+        )
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "restored": True,
+                    "asset_id": normalized_asset_id,
+                    "status": "ACTIVE",
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset restore failed")
+        return _asset_restore_internal_error()
+
+
 @app.route(route="assets/{asset_id}/timeline", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def asset_timeline(req: func.HttpRequest) -> func.HttpResponse:
     try:
@@ -1398,6 +1577,7 @@ def asset_timeline(req: func.HttpRequest) -> func.HttpResponse:
                 "select": "id",
                 "organization_id": f"eq.{organization_id}",
                 "id": f"eq.{normalized_asset_id}",
+                "status": "neq.ARCHIVED",
                 "limit": "1",
             },
             config,
@@ -1466,6 +1646,7 @@ def asset_snapshot(req: func.HttpRequest) -> func.HttpResponse:
                 "select": "*",
                 "id": f"eq.{normalized_asset_id}",
                 "organization_id": f"eq.{organization_id}",
+                "status": "neq.ARCHIVED",
                 "limit": "1",
             },
             config,
@@ -1573,6 +1754,7 @@ def asset_raw_list(req: func.HttpRequest) -> func.HttpResponse:
                 "select": "id",
                 "organization_id": f"eq.{organization_id}",
                 "id": f"eq.{normalized_asset_id}",
+                "status": "neq.ARCHIVED",
                 "limit": "1",
             },
             config,
@@ -1902,6 +2084,7 @@ def assets_link_create(req: func.HttpRequest) -> func.HttpResponse:
                 "select": "id",
                 "organization_id": f"eq.{organization_id}",
                 "id": f"eq.{parent_asset_id}",
+                "status": "neq.ARCHIVED",
                 "limit": "1",
             },
             config,
@@ -1915,6 +2098,7 @@ def assets_link_create(req: func.HttpRequest) -> func.HttpResponse:
                 "select": "id",
                 "organization_id": f"eq.{organization_id}",
                 "id": f"eq.{child_asset_id}",
+                "status": "neq.ARCHIVED",
                 "limit": "1",
             },
             config,
