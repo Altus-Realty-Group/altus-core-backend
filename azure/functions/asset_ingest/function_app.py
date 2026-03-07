@@ -375,6 +375,22 @@ def _asset_export_internal_error() -> func.HttpResponse:
     )
 
 
+def _asset_delete_internal_error() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "ok": False,
+                "code": "ASSET_DELETE_INTERNAL",
+                "error": "Internal server error",
+                "status": 500,
+            }
+        ),
+        status_code=500,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
 def _extract_link_payload(req: func.HttpRequest) -> tuple[dict[str, str] | None, func.HttpResponse | None]:
     try:
         body = req.get_json()
@@ -584,6 +600,15 @@ def _raw_bad_request() -> func.HttpResponse:
 
 
 def _export_bad_request() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps({"ok": False, "error": "Invalid request"}),
+        status_code=400,
+        headers=_build_headers(),
+        mimetype="application/json",
+    )
+
+
+def _delete_bad_request() -> func.HttpResponse:
     return func.HttpResponse(
         json.dumps({"ok": False, "error": "Invalid request"}),
         status_code=400,
@@ -860,6 +885,115 @@ def _get_snapshot_links(asset_id: str, organization_id: str, config: RuntimeConf
     except RuntimeError as exc:
         if _is_missing_asset_links_table_error(exc):
             return _get_snapshot_links_from_fallback(asset_id, config)
+        raise
+
+
+def _get_active_links_for_asset_fallback(
+    asset_id: str,
+    organization_id: str,
+    config: RuntimeConfig,
+) -> list[dict[str, Any]]:
+    raw_rows = _supabase_get_rows(
+        "asset_data_raw",
+        {
+            "select": "id,asset_id,source,payload_jsonb,fetched_at",
+            "order": "fetched_at.desc",
+            "limit": "5000",
+        },
+        config,
+    )
+
+    deleted_keys: set[tuple[str, str, str]] = set()
+    active_links: list[dict[str, Any]] = []
+    seen_keys: set[tuple[str, str, str]] = set()
+
+    for row in raw_rows:
+        payload = row.get("payload_jsonb")
+        if not isinstance(payload, dict):
+            continue
+
+        if payload.get("organization_id") != organization_id:
+            continue
+
+        parent_asset_id = payload.get("parent_asset_id")
+        child_asset_id = payload.get("child_asset_id")
+        link_type = payload.get("link_type")
+        if not isinstance(parent_asset_id, str) or not isinstance(child_asset_id, str) or not isinstance(link_type, str):
+            continue
+
+        if parent_asset_id != asset_id and child_asset_id != asset_id:
+            continue
+
+        link_key = (parent_asset_id, child_asset_id, link_type)
+        source_value = str(row.get("source") or "")
+        record_type = payload.get("record_type")
+
+        if record_type == "asset_link_delete" or source_value.startswith(_LINK_DELETE_SOURCE_PREFIX):
+            if link_key in seen_keys:
+                continue
+            deleted_keys.add(link_key)
+            continue
+
+        if not (record_type == "asset_link" or source_value.startswith(_LINK_SOURCE_PREFIX)):
+            continue
+
+        if link_key in deleted_keys or link_key in seen_keys:
+            continue
+
+        seen_keys.add(link_key)
+        active_links.append(
+            {
+                "id": row.get("id"),
+                "parent_asset_id": parent_asset_id,
+                "child_asset_id": child_asset_id,
+                "link_type": link_type,
+            }
+        )
+
+    return active_links
+
+
+def _get_active_links_for_asset(
+    asset_id: str,
+    organization_id: str,
+    config: RuntimeConfig,
+) -> list[dict[str, Any]]:
+    try:
+        parent_links = _supabase_get_rows(
+            "asset_links",
+            {
+                "select": "id,parent_asset_id,child_asset_id,link_type",
+                "organization_id": f"eq.{organization_id}",
+                "parent_asset_id": f"eq.{asset_id}",
+                "order": "id.desc",
+                "limit": "200",
+            },
+            config,
+        )
+        child_links = _supabase_get_rows(
+            "asset_links",
+            {
+                "select": "id,parent_asset_id,child_asset_id,link_type",
+                "organization_id": f"eq.{organization_id}",
+                "child_asset_id": f"eq.{asset_id}",
+                "order": "id.desc",
+                "limit": "200",
+            },
+            config,
+        )
+
+        merged: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        for row in parent_links + child_links:
+            row_id = str(row.get("id"))
+            if row_id in seen_ids:
+                continue
+            seen_ids.add(row_id)
+            merged.append(row)
+        return merged
+    except RuntimeError as exc:
+        if _is_missing_asset_links_table_error(exc):
+            return _get_active_links_for_asset_fallback(asset_id, organization_id, config)
         raise
 
 
@@ -1155,6 +1289,79 @@ def asset_detail(req: func.HttpRequest) -> func.HttpResponse:
     except Exception:
         logging.exception("Asset detail failed")
         return _internal_error()
+
+
+@app.route(route="assets/{asset_id}", methods=["DELETE"], auth_level=func.AuthLevel.ANONYMOUS)
+def asset_delete(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
+
+        asset_id_raw = req.route_params.get("asset_id")
+        if not asset_id_raw:
+            return _delete_bad_request()
+
+        try:
+            normalized_asset_id = str(uuid.UUID(asset_id_raw))
+        except ValueError:
+            return _delete_bad_request()
+
+        config = _get_config()
+        assets = _supabase_get_rows(
+            "assets",
+            {
+                "select": "id",
+                "organization_id": f"eq.{organization_id}",
+                "id": f"eq.{normalized_asset_id}",
+                "limit": "1",
+            },
+            config,
+        )
+        if not assets:
+            return func.HttpResponse(
+                json.dumps({"ok": False, "code": "ASSET_NOT_FOUND"}),
+                status_code=404,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        active_links = _get_active_links_for_asset(
+            asset_id=normalized_asset_id,
+            organization_id=organization_id,
+            config=config,
+        )
+        if active_links:
+            return func.HttpResponse(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "code": "ASSET_DELETE_BLOCKED",
+                        "error": "Asset has dependent links",
+                    }
+                ),
+                status_code=409,
+                headers=_build_headers(),
+                mimetype="application/json",
+            )
+
+        _delete_supabase_row_by_id("assets", normalized_asset_id, config)
+
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "ok": True,
+                    "deleted": True,
+                    "asset_id": normalized_asset_id,
+                }
+            ),
+            status_code=200,
+            headers=_build_headers(),
+            mimetype="application/json",
+        )
+    except Exception:
+        logging.exception("Asset delete failed")
+        return _asset_delete_internal_error()
 
 
 @app.route(route="assets/{asset_id}/timeline", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
