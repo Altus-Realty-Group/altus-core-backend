@@ -1064,7 +1064,7 @@ def assets_list(req: func.HttpRequest) -> func.HttpResponse:
         query_text = req.params.get("q")
         if query_text:
             safe_query = query_text.replace("*", "")
-            params["or"] = f"(display_name.ilike.*{safe_query}*,name.ilike.*{safe_query}*)"
+            params["or"] = f"(display_name.ilike.*{safe_query}*,address_canonical.ilike.*{safe_query}*)"
 
         config = _get_config()
         items = _supabase_get_rows("assets", params, config)
@@ -1194,7 +1194,7 @@ def assets_export(req: func.HttpRequest) -> func.HttpResponse:
         query_text = req.params.get("q")
         if query_text:
             safe_query = query_text.replace("*", "")
-            params["or"] = f"(display_name.ilike.*{safe_query}*,name.ilike.*{safe_query}*)"
+            params["or"] = f"(display_name.ilike.*{safe_query}*,address_canonical.ilike.*{safe_query}*)"
 
         config = _get_config()
         items = _supabase_get_rows("assets", params, config)
