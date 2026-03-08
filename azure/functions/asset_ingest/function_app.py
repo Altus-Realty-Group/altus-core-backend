@@ -3132,14 +3132,9 @@ def assets_link_delete(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="assets/ingest", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
     try:
-        org_id_raw = req.headers.get("x-altus-org-id")
-        if not org_id_raw:
-            return _bad_request("Missing required header: x-altus-org-id")
-
-        try:
-            organization_id = str(uuid.UUID(org_id_raw))
-        except ValueError:
-            return _bad_request("x-altus-org-id must be a valid UUID")
+        organization_id, error_response = _require_org_id(req)
+        if error_response is not None:
+            return error_response
 
         try:
             body = req.get_json()
@@ -3304,3 +3299,4 @@ def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
     except Exception:
         logging.exception("Asset ingest failed")
         return _internal_error()
+

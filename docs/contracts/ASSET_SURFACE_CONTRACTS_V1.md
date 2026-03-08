@@ -11,6 +11,14 @@ Global required request header (all surfaces):
 
 - `x-altus-org-id`
 
+## ORG SCOPING REQUIREMENT
+
+All asset routes require header:
+
+- `x-altus-org-id: <uuid>`
+
+Requests without this header must return HTTP 400.
+
 ## assets_list
 
 - Route: `GET /api/assets`
