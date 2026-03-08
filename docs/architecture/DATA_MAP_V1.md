@@ -20,7 +20,7 @@ Canonical runtime owner: `azure/functions/asset_ingest/function_app.py`
 | `GET /api/assets/{id}/snapshot` | `assets` + links + `asset_data_raw` | `asset_data_raw` links | Snapshot combines current state + relationship view. |
 | `GET /api/assets/{id}/audit` | `asset_data_raw` | none | Recognized event families normalized in handler. |
 | `POST /api/assets/match` | `assets` | none | Candidate selection in org scope. |
-| `POST /api/assets/resolve` | reserved | reserved | Current accepted runtime uses match/upsert/bulk-resolve paths. |
+| `POST /api/assets/resolve` | `assets` (+ insert on create path) | none | Accepted live resolve surface with matched/created semantics. |
 | `POST /api/assets/bulk-resolve` | `assets` (+ insert) | none | Per-row match or create semantics. |
 | `POST /api/assets/upsert` | `assets` (+ optional raw evidence) | none | Creates/updates state row. |
 | `POST /api/assets/link` | `asset_links` | `asset_data_raw` (`ASSET_LINK::`) | Fallback evidence row emitted when link table unavailable. |

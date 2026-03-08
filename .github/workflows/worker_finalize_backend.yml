@@ -181,6 +181,40 @@ jobs:
               return;
             }
 
+            const proofFolder = (process.env.INPUT_PROOF_FOLDER || '').trim();
+            const proofArtifacts = normalizeList(process.env.INPUT_PROOF_ARTIFACTS || '');
+
+            if (mappedStatus === 'status:proof-ready') {
+              if (!proofFolder) {
+                core.setFailed('proof-ready finalization requires proof_folder');
+                return;
+              }
+              if (!proofFolder.startsWith('docs/proofpacks/')) {
+                core.setFailed(`proof_folder must be repo-relative docs/proofpacks/*; got ${proofFolder}`);
+                return;
+              }
+              const requiredArtifactHints = [
+                'proof_manifest.json',
+                'route_and_commit.txt',
+                'git_scope.txt',
+                'telemetry_evidence.txt',
+                'validation.txt'
+              ];
+              const lowerArtifacts = proofArtifacts.map(item => item.toLowerCase());
+              for (const required of requiredArtifactHints) {
+                const present = lowerArtifacts.some(item => item.includes(required));
+                if (!present) {
+                  core.setFailed(`proof-ready finalization missing proof artifact reference containing ${required}`);
+                  return;
+                }
+              }
+              const hasRuntimeRaw = lowerArtifacts.some(item => item.includes('runtime_http_raw.txt') || item.includes('_http_raw.txt') || item.includes('route_raw_response.txt'));
+              if (!hasRuntimeRaw) {
+                core.setFailed('proof-ready finalization requires runtime raw HTTP evidence reference');
+                return;
+              }
+            }
+
             await setSingleStatus(issueNumber, mappedStatus);
 
             const result = {

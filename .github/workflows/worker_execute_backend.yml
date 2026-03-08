@@ -82,6 +82,26 @@ on:
         options:
           - direct
           - relay-fallback
+      bundle_milestone:
+        description: Milestone token for deterministic bundle path
+        required: false
+        default: ""
+        type: string
+      reviewed_commit_sha:
+        description: Reviewed commit SHA expected to match live build header
+        required: false
+        default: ""
+        type: string
+      runtime_affecting:
+        description: Require raw runtime route proof file gate
+        required: false
+        default: true
+        type: boolean
+      require_persistence_evidence:
+        description: Require persistence_evidence.txt gate
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -93,6 +113,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'status:queued'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Claim queued backend task and emit execution packet
         id: emit_packet
         uses: actions/github-script@v7
@@ -299,11 +324,21 @@ jobs:
             core.setOutput('packet_json', packetJson);
             core.setOutput('packet_txt', packetTxt);
 
+      - name: Route downgrade guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_route_downgrade_guard.py --route-map docs/architecture/ROUTE_MAP_V1.md --base-ref origin/feature/core-asset-ingest-01
+
       - name: Emit deterministic backend proof folder
         shell: bash
         env:
           INPUT_PROOF_BASE_URL: ${{ inputs.proof_base_url }}
           INPUT_PROOF_ORG_ID: ${{ inputs.proof_org_id }}
+          INPUT_BUNDLE_MILESTONE: ${{ inputs.bundle_milestone }}
+          INPUT_REVIEWED_COMMIT_SHA: ${{ inputs.reviewed_commit_sha }}
+          INPUT_RUNTIME_AFFECTING: ${{ inputs.runtime_affecting }}
+          INPUT_REQUIRE_PERSISTENCE_EVIDENCE: ${{ inputs.require_persistence_evidence }}
         run: |
           set -euo pipefail
 
@@ -311,51 +346,129 @@ jobs:
           dry_run="$(python -c "import json; p=json.load(open('worker_execution_packet.json', encoding='utf-8')); print(str(p.get('dry_run', True)).lower())")"
           expected_proofpack="$(python -c "import json, datetime; p=json.load(open('worker_execution_packet.json', encoding='utf-8')); v=(p.get('expected_proofpack') or '').strip(); print(v or f\"docs/proofpacks/{datetime.datetime.utcnow().strftime('%Y-%m-%d')}_be-core_issue-{p.get('issue_number','unknown')}\")")"
           route_tested="$(python -c "import json; p=json.load(open('worker_execution_packet.json', encoding='utf-8')); print((p.get('route_tested') or '/api/assets/metrics').strip())")"
+          objective="$(python -c "import json; p=json.load(open('worker_execution_packet.json', encoding='utf-8')); print((p.get('objective') or '').strip())")"
 
-          proof_dir="${expected_proofpack}"
-          mkdir -p "${proof_dir}"
+          default_milestone="$(python -c "import re,sys; objective='''${objective}'''; m=re.search(r'([A-Z0-9]+(?:-[A-Z0-9]+)+)', objective); print(m.group(1) if m else '')")"
+          milestone="${INPUT_BUNDLE_MILESTONE:-}"
+          if [ -z "${milestone}" ]; then
+            milestone="${default_milestone}"
+          fi
+          if [ -z "${milestone}" ]; then
+            milestone="issue-${issue_number}"
+          fi
+          date_stamp="$(date -u +%F)"
+          std_proof_dir="docs/proofpacks/${date_stamp}_be-core_${milestone}"
+          mkdir -p "${std_proof_dir}"
+
+          # preserve compatibility with prior expected path while standardizing bundle path
+          if [ "${expected_proofpack}" != "${std_proof_dir}" ]; then
+            mkdir -p "${expected_proofpack}"
+          fi
 
           commit_sha="${GITHUB_SHA}"
+          reviewed_commit_sha="${INPUT_REVIEWED_COMMIT_SHA:-${commit_sha}}"
           base_url="${INPUT_PROOF_BASE_URL:-https://altus-core-staging-func.azurewebsites.net}"
           org_id="${INPUT_PROOF_ORG_ID:-d290f1ee-6c54-4b01-90e6-d701748f0851}"
+          runtime_affecting="$(echo "${INPUT_RUNTIME_AFFECTING:-true}" | tr '[:upper:]' '[:lower:]')"
+          require_persistence="$(echo "${INPUT_REQUIRE_PERSISTENCE_EVIDENCE:-false}" | tr '[:upper:]' '[:lower:]')"
 
-          python -c "import datetime, json, os; manifest={'issue_number':'${issue_number}','proof_folder':'${proof_dir}','route_tested':'${route_tested}','commit_sha':'${commit_sha}','base_url':'${base_url}','org_id':'${org_id}','dry_run':('${dry_run}'=='true'),'generated_at_utc':datetime.datetime.utcnow().isoformat()+'Z'}; json.dump(manifest, open(os.path.join('${proof_dir}','proof_manifest.json'),'w',encoding='utf-8'), indent=2)"
+          runtime_raw_file="${std_proof_dir}/runtime_http_raw.txt"
 
           if [ "${dry_run}" = "true" ]; then
             {
               echo "DRY_RUN_TRUE"
               echo "route_tested=${route_tested}"
-              echo "commit_sha=${commit_sha}"
+              echo "reviewed_commit_sha=${reviewed_commit_sha}"
+              echo "live_build_sha=DRY_RUN"
               echo "proof_capture_status=skipped_live_http_call"
-            } > "${proof_dir}/route_raw_response.txt"
+            } > "${runtime_raw_file}"
+            live_build_sha="DRY_RUN"
           else
             curl -k -sS -i -X GET "${base_url}${route_tested}" \
-              -H "x-altus-org-id: ${org_id}" > "${proof_dir}/route_raw_response.txt" || true
+              -H "x-altus-org-id: ${org_id}" > "${runtime_raw_file}"
+            live_build_sha="$(python -c "import re,sys; t=open('${runtime_raw_file}',encoding='utf-8',errors='ignore').read(); m=re.search(r'^x-altus-build-sha:\\s*([^\\s]+)', t, flags=re.I|re.M); print(m.group(1).strip() if m else '')")"
+            if [ -z "${live_build_sha}" ]; then
+              echo "x-altus-build-sha header missing from runtime proof" >&2
+              exit 1
+            fi
+            if [ "${reviewed_commit_sha}" != "${live_build_sha}" ]; then
+              echo "reviewed/live SHA mismatch: reviewed=${reviewed_commit_sha} live=${live_build_sha}" >&2
+              exit 1
+            fi
           fi
+
+          cp "${runtime_raw_file}" "${std_proof_dir}/route_raw_response.txt"
 
           {
             echo "route_tested=${route_tested}"
+            echo "milestone=${milestone}"
+            echo "reviewed_commit_sha=${reviewed_commit_sha}"
+            echo "live_build_sha=${live_build_sha}"
             echo "commit_sha=${commit_sha}"
-            echo "proof_folder=${proof_dir}"
-          } > "${proof_dir}/route_and_commit.txt"
+            echo "proof_folder=${std_proof_dir}"
+          } > "${std_proof_dir}/route_and_commit.txt"
+
+          {
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "reviewed_commit_sha=${reviewed_commit_sha}"
+            echo "base_ref=origin/feature/core-asset-ingest-01"
+            echo "changed_files_from_base="
+            git diff --name-only "$(git merge-base HEAD origin/feature/core-asset-ingest-01)"..HEAD || true
+          } > "${std_proof_dir}/git_scope.txt"
+
+          {
+            echo "# BE Acceptance Bundle"
+            echo
+            echo "- milestone: ${milestone}"
+            echo "- issue_number: ${issue_number}"
+            echo "- reviewed_commit_sha: ${reviewed_commit_sha}"
+            echo "- live_build_sha: ${live_build_sha}"
+            echo "- route_tested: ${route_tested}"
+            echo "- proof_folder: ${std_proof_dir}"
+            echo "- dry_run: ${dry_run}"
+          } > "${std_proof_dir}/README.md"
+
+          python -c "import datetime, json, os; manifest={'milestone':'${milestone}','issue_number':'${issue_number}','proof_folder':'${std_proof_dir}','route_tested':'${route_tested}','routes_tested':['${route_tested}'],'reviewed_commit_sha':'${reviewed_commit_sha}','live_build_sha':'${live_build_sha}','commit_sha':'${commit_sha}','base_url':'${base_url}','org_id':'${org_id}','dry_run':('${dry_run}'=='true'),'runtime_affecting':('${runtime_affecting}'=='true'),'generated_at_utc':datetime.datetime.utcnow().isoformat()+'Z','execution_mode':'${INPUT_EXECUTION_MODE:-direct}'}; json.dump(manifest, open(os.path.join('${std_proof_dir}','proof_manifest.json'),'w',encoding='utf-8'), indent=2)"
 
           {
             echo "telemetry_evidence_mode=repo-native"
             echo "note=telemetry capture in worker_execute_backend is environment-dependent"
             echo "dry_run=${dry_run}"
-          } > "${proof_dir}/telemetry_evidence.txt"
+            echo "reviewed_commit_sha=${reviewed_commit_sha}"
+            echo "live_build_sha=${live_build_sha}"
+          } > "${std_proof_dir}/telemetry_evidence.txt"
 
           {
             echo "persistence_evidence=optional"
             echo "note=worker_execute_backend emits placeholder when live data-plane credentials are unavailable"
             echo "dry_run=${dry_run}"
-          } > "${proof_dir}/persistence_evidence.txt"
+          } > "${std_proof_dir}/persistence_evidence.txt"
 
-          cp "${proof_dir}/proof_manifest.json" worker_metrics_proof_manifest.json
-          cp "${proof_dir}/route_raw_response.txt" worker_metrics_route_raw_response.txt
-          cp "${proof_dir}/telemetry_evidence.txt" worker_metrics_telemetry_evidence.txt
-          cp "${proof_dir}/persistence_evidence.txt" worker_metrics_persistence_evidence.txt
-          cp "${proof_dir}/route_and_commit.txt" worker_metrics_route_and_commit.txt
+          {
+            echo "== route_downgrade_guard =="
+            python tools/check_route_downgrade_guard.py --route-map docs/architecture/ROUTE_MAP_V1.md --base-ref origin/feature/core-asset-ingest-01
+            echo
+            echo "== bundle_validation =="
+            extra=""
+            if [ "${runtime_affecting}" = "true" ]; then extra="${extra} --runtime-affecting"; fi
+            if [ "${require_persistence}" = "true" ]; then extra="${extra} --require-persistence"; fi
+            python tools/validate_be_acceptance_bundle.py --proof-dir "${std_proof_dir}" --reviewed-sha "${reviewed_commit_sha}" ${extra}
+          } > "${std_proof_dir}/validation.txt"
+
+          cp "${std_proof_dir}/README.md" worker_metrics_bundle_readme.txt
+          cp "${std_proof_dir}/proof_manifest.json" worker_metrics_proof_manifest.json
+          cp "${std_proof_dir}/runtime_http_raw.txt" worker_metrics_runtime_http_raw.txt
+          cp "${std_proof_dir}/route_raw_response.txt" worker_metrics_route_raw_response.txt
+          cp "${std_proof_dir}/telemetry_evidence.txt" worker_metrics_telemetry_evidence.txt
+          cp "${std_proof_dir}/persistence_evidence.txt" worker_metrics_persistence_evidence.txt
+          cp "${std_proof_dir}/route_and_commit.txt" worker_metrics_route_and_commit.txt
+          cp "${std_proof_dir}/git_scope.txt" worker_metrics_git_scope.txt
+          cp "${std_proof_dir}/validation.txt" worker_metrics_validation.txt
+
+          # compatibility copy for previous expected proofpack path
+          if [ "${expected_proofpack}" != "${std_proof_dir}" ]; then
+            cp -f "${std_proof_dir}"/* "${expected_proofpack}/" || true
+          fi
 
       - name: Upload backend execution packet
         uses: actions/upload-artifact@v4
@@ -367,9 +480,13 @@ jobs:
             worker_execution_packet.json
             worker_execution_packet.txt
             docs/proofpacks/**
+            worker_metrics_bundle_readme.txt
             worker_metrics_proof_manifest.json
+            worker_metrics_runtime_http_raw.txt
             worker_metrics_route_raw_response.txt
             worker_metrics_telemetry_evidence.txt
             worker_metrics_persistence_evidence.txt
             worker_metrics_route_and_commit.txt
+            worker_metrics_git_scope.txt
+            worker_metrics_validation.txt
           if-no-files-found: error

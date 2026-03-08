@@ -61,7 +61,11 @@ CD receives final validated result
 - Manual relay is not the default backend path.
 - Proof remains mandatory for completion.
 - Direct backend proof path is deterministic and repo-relative: `docs/proofpacks/<YYYY-MM-DD>_be-core_issue-<issue_number>`
+- AUTONOMY-04 milestone bundle path is deterministic and repo-relative: `docs/proofpacks/<YYYY-MM-DD>_be-core_<milestone>`
 - Default route exercised for hardened backend proof emission: `GET /api/assets/metrics`
+- Bundle and final return contract authorities:
+   - `docs/governance/BE_ACCEPTANCE_BUNDLE_STANDARD_V1.md`
+   - `docs/governance/BE_FINAL_RETURN_TEMPLATE_V1.md`
 
 ## Labels
 

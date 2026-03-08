@@ -170,12 +170,18 @@ Finalization must preserve exactly one `status:*` label.
 ## Deterministic Proof Folder Contract
 
 - Repo-relative proof folder is required: `docs/proofpacks/<YYYY-MM-DD>_be-core_issue-<issue_number>`.
+- AUTONOMY-04 standard milestone bundle shape is required for backend milestones: `docs/proofpacks/<YYYY-MM-DD>_be-core_<milestone>`.
+- Bundle contract authority: `docs/governance/BE_ACCEPTANCE_BUNDLE_STANDARD_V1.md`.
+- Final return contract authority: `docs/governance/BE_FINAL_RETURN_TEMPLATE_V1.md`.
 - `worker_execute_backend.yml` must emit, at minimum:
+  - `README.md`
   - `proof_manifest.json`
   - `route_and_commit.txt`
-  - `route_raw_response.txt`
+  - `git_scope.txt`
+  - `runtime_http_raw.txt` (or route-specific `*_http_raw.txt`)
   - `telemetry_evidence.txt`
-  - `persistence_evidence.txt`
+  - `validation.txt`
+  - `persistence_evidence.txt` when persistence proof applies
 - Route proof target defaults to: `GET /api/assets/metrics`.
 
 ## Dry-Run Honesty Rule
