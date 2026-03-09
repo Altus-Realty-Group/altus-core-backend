@@ -13,6 +13,7 @@ import requests
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from ecc_portfolio_assets_handler import handle_ecc_portfolio_assets
+from ecc_portfolio_summary_handler import handle_ecc_portfolio_summary
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
@@ -3305,3 +3306,6 @@ def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="ecc/portfolio/assets", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def ecc_portfolio_assets(req: func.HttpRequest) -> func.HttpResponse:
     return handle_ecc_portfolio_assets(req, _build_headers)
+@app.route(route="ecc/portfolio/summary", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def ecc_portfolio_summary(req: func.HttpRequest) -> func.HttpResponse:
+    return handle_ecc_portfolio_summary(req, _build_headers)
