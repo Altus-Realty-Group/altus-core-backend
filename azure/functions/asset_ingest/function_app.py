@@ -12,6 +12,7 @@ import azure.functions as func
 import requests
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
+from price_engine_handler import handle_price_engine_calculate
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
@@ -3300,3 +3301,7 @@ def assets_ingest(req: func.HttpRequest) -> func.HttpResponse:
         logging.exception("Asset ingest failed")
         return _internal_error()
 
+
+@app.route(route="price-engine/calculate", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def price_engine_calculate(req: func.HttpRequest) -> func.HttpResponse:
+    return handle_price_engine_calculate(req, _build_headers)

@@ -14,6 +14,7 @@ Canonical route owner: `azure/functions/asset_ingest/function_app.py`
 | POST | `/api/assets/link` | `assets_link_create` | `azure/functions/asset_ingest/function_app.py` | Accepted live route |
 | POST | `/api/assets/{asset_id}/archive` | `asset_archive` | `azure/functions/asset_ingest/function_app.py` | Accepted live route |
 | POST | `/api/assets/{asset_id}/restore` | `asset_restore` | `azure/functions/asset_ingest/function_app.py` | Accepted live route |
+| POST | `/api/price-engine/calculate` | `price_engine_calculate` | `azure/functions/asset_ingest/function_app.py` | Price engine calculation stub with contract field rounding and failure catalog |
 | DELETE | `/api/assets/link` | `assets_link_delete` | `azure/functions/asset_ingest/function_app.py` | Accepted live route |
 | DELETE | `/api/assets/{asset_id}` | `asset_delete` | `azure/functions/asset_ingest/function_app.py` | Accepted live route |
 | GET | `/api/assets` | `assets_list` | `azure/functions/asset_ingest/function_app.py` | Accepted live route |
