@@ -17,11 +17,11 @@ def handle_ecc_system_health(
     build_headers: Callable[[], dict[str, str]],
 ) -> func.HttpResponse:
     try:
-        return _json_response({"data": build_system_health()}, 200, build_headers)
+        return _json_response({"ok": True, "data": build_system_health()}, 200, build_headers)
     except Exception:
         logging.exception("ECC system health failed")
         return _json_response(
-            {"error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+            {"ok": False, "code": "INTERNAL_ERROR", "error": "Internal server error"},
             500,
             build_headers,
         )

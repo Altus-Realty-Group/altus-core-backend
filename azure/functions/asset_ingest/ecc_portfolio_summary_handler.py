@@ -19,18 +19,18 @@ def handle_ecc_portfolio_summary(
     portfolio_id = (req.params.get("portfolioId") or "").strip()
     if not portfolio_id:
         return _json_response(
-            {"error": {"code": "VALIDATION_FAILED", "message": "portfolioId is required"}},
+            {"ok": False, "code": "VALIDATION_FAILED", "error": "portfolioId is required"},
             400,
             build_headers,
         )
 
     try:
-        payload = {"data": build_portfolio_summary(portfolio_id, req.params.get("asOfDate"))}
+        payload = {"ok": True, "data": build_portfolio_summary(portfolio_id, req.params.get("asOfDate"))}
         return _json_response(payload, 200, build_headers)
     except Exception:
         logging.exception("ECC portfolio summary failed")
         return _json_response(
-            {"error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+            {"ok": False, "code": "INTERNAL_ERROR", "error": "Internal server error"},
             500,
             build_headers,
         )

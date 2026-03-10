@@ -19,7 +19,7 @@ def handle_ecc_portfolio_assets(
     portfolio_id = (req.params.get("portfolioId") or "").strip()
     if not portfolio_id:
         return _json_response(
-            {"error": {"code": "VALIDATION_FAILED", "message": "portfolioId is required"}},
+            {"ok": False, "code": "VALIDATION_FAILED", "error": "portfolioId is required"},
             400,
             build_headers,
         )
@@ -29,24 +29,24 @@ def handle_ecc_portfolio_assets(
         offset = int(req.params.get("offset", "0"))
     except ValueError:
         return _json_response(
-            {"error": {"code": "VALIDATION_FAILED", "message": "limit and offset must be integers"}},
+            {"ok": False, "code": "VALIDATION_FAILED", "error": "limit and offset must be integers"},
             400,
             build_headers,
         )
 
     if limit < 1 or limit > 100 or offset < 0:
         return _json_response(
-            {"error": {"code": "VALIDATION_FAILED", "message": "limit must be 1..100 and offset must be >= 0"}},
+            {"ok": False, "code": "VALIDATION_FAILED", "error": "limit must be 1..100 and offset must be >= 0"},
             400,
             build_headers,
         )
 
     try:
-        return _json_response(build_portfolio_assets(portfolio_id, limit, offset), 200, build_headers)
+        return _json_response({"ok": True, **build_portfolio_assets(portfolio_id, limit, offset)}, 200, build_headers)
     except Exception:
         logging.exception("ECC portfolio assets failed")
         return _json_response(
-            {"error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+            {"ok": False, "code": "INTERNAL_ERROR", "error": "Internal server error"},
             500,
             build_headers,
         )

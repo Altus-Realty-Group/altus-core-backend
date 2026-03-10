@@ -19,7 +19,7 @@ def handle_ecc_asset_metrics(
     asset_id = (req.params.get("assetId") or "").strip()
     if not asset_id:
         return _json_response(
-            {"error": {"code": "VALIDATION_FAILED", "message": "assetId is required"}},
+            {"ok": False, "code": "VALIDATION_FAILED", "error": "assetId is required"},
             400,
             build_headers,
         )
@@ -28,24 +28,24 @@ def handle_ecc_asset_metrics(
         window_days = int(req.params.get("windowDays", "30"))
     except ValueError:
         return _json_response(
-            {"error": {"code": "VALIDATION_FAILED", "message": "windowDays must be an integer"}},
+            {"ok": False, "code": "VALIDATION_FAILED", "error": "windowDays must be an integer"},
             400,
             build_headers,
         )
 
     if window_days < 1 or window_days > 365:
         return _json_response(
-            {"error": {"code": "VALIDATION_FAILED", "message": "windowDays must be 1..365"}},
+            {"ok": False, "code": "VALIDATION_FAILED", "error": "windowDays must be 1..365"},
             400,
             build_headers,
         )
 
     try:
-        return _json_response({"data": build_asset_metrics(asset_id, window_days)}, 200, build_headers)
+        return _json_response({"ok": True, "data": build_asset_metrics(asset_id, window_days)}, 200, build_headers)
     except Exception:
         logging.exception("ECC asset metrics failed")
         return _json_response(
-            {"error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+            {"ok": False, "code": "INTERNAL_ERROR", "error": "Internal server error"},
             500,
             build_headers,
         )
