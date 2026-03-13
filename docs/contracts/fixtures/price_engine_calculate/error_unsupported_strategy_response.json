@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "UNSUPPORTED_STRATEGY_MODE",
+    "message": "strategy must be flip, rental_hold, or brrrr",
+    "details": null
+  }
+}
