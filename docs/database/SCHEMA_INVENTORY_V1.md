@@ -84,8 +84,14 @@ Columns provable somewhere in repo migrations:
 - `created_at`
 - `updated_at`
 
-Columns still expected by runtime code but not proven by migrations on this branch:
+Live staging field not yet proven by migrations on this branch:
 - `external_ids`
+  - proven staging type: `jsonb`
+  - nullability: `NOT NULL`
+  - default: `'{}'::jsonb`
+  - observed live shape: object in populated rows
+  - observed top-level key usage: `payload_hash`
+  - semantic expansion or redesign remains deferred to a later decision task
 
 Current role:
 - authoritative current-state table for asset ingest and the asset-centric API surfaces in `docs/architecture/DATA_MAP_V1.md`
@@ -262,7 +268,7 @@ Supporting objects:
 
 Repo/code gap notes:
 - this branch reconciles repo truth toward `assets.display_name` and the `asset_data_raw.payload_jsonb` / `fetched_at` baseline
-- `external_ids`, `payload_sha256`, and `source_record_id` remain intentionally unresolved
+- `external_ids` is proven live in staging as a `jsonb` object field with default `{}` and observed `payload_hash` key usage, but semantic expansion or redesign remains intentionally deferred; `payload_sha256` and `source_record_id` remain intentionally unresolved
 
 ### ECC portfolio summary surfaces
 
@@ -304,7 +310,7 @@ Grounding notes:
 ## Unknowns / Gaps
 
 - `asset_links` is not proven by repo migrations on `main`, and staging proof run `23066495260` confirmed `public.asset_links` is not present in staging.
-- `external_ids` remains unproven by repo migrations on this branch.
+- `external_ids` is proven live in staging as `jsonb not null default '{}'::jsonb`, but its canonical repo semantics remain documentation-only until a later decision task.
 - `payload_sha256` and `source_record_id` remain unresolved runtime-only expectations.
 - No repo migration on this branch proves any critical view for ECC or price-engine persistence.
 
@@ -318,7 +324,7 @@ Confirmed matches from staging proof:
 - tables present: `public.organizations`, `public.profiles`, `public.organization_members`, `public.assets`, `public.asset_data_raw`, `public.asset_specs_reconciled`
 - functions present: `public._touch_updated_at()`, `public.altus_current_org_id()`, `public.altus_is_org_member(uuid)`, `public.altus_login(text)`, `public.altus_me()`, `public.altus_logout()`
 - policy objects present: `org_select`, `profiles_select_self`, `profiles_update_self`, `org_members_select`, `assets_select`, `assets_insert`, `assets_update`, `assets_delete`, `adr_select`, `adr_insert`, `adr_update`, `adr_delete`, `asr_select`, `asr_insert`, `asr_update`, `asr_delete`
-- staging `public.assets` includes `display_name` and `external_ids`, which current runtime code expects even though those columns are not proven by repository migrations on `main`
+- staging `public.assets` includes `display_name` and `external_ids`; later proof run `23067744047` established that `external_ids` is `jsonb not null default '{}'::jsonb` and object-shaped in populated rows, even though the field is still not proven by repository migrations on `main`
 
 Confirmed mismatches from staging proof:
 - staging `public.asset_data_raw` exposes `id`, `asset_id`, `source`, `payload_jsonb`, and `fetched_at`, but does not expose the `0002`-era `organization_id`, `payload`, or `created_at` fields that repository migrations also describe
@@ -351,4 +357,6 @@ Objects still unknown after staging proof:
 1. Run the focused verification file `supabase/verification/0003_canonical_baseline_assertions.sql` after this branch merges so the reconciled repo baseline is re-proven against staging.
 2. Treat `asset_data_raw` fallback evidence as the canonical link authority until a future explicit schema proposal decides whether `asset_links` should be introduced as a governed table.
 3. Define whether ECC and price-engine surfaces will remain stub-only or receive explicit persistence contracts.
-4. Open separate proof or contract work for `asset_specs_reconciled` extra live columns and `external_ids` semantics.
+4. Open a later decision task only if semantic expansion, redesign, or repo-migration canonicalization for `external_ids` becomes necessary after this documented staging proof.
+
+
