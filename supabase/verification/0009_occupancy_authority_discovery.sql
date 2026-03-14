@@ -86,17 +86,15 @@ select
   p.proname as routine_name,
   pg_get_function_identity_arguments(p.oid) as routine_arguments,
   case
-    when p.proname ~* '(occup|vacan)' or pg_get_functiondef(p.oid) ~* '(occup|vacan)' then 'occupancy-term'
-    when p.proname ~* '(lease|tenant|resident)' or pg_get_functiondef(p.oid) ~* '(lease|tenant|resident)' then 'lease-or-tenant-term'
+    when p.proname ~* '(occup|vacan)' then 'occupancy-term'
+    when p.proname ~* '(lease|tenant|resident)' then 'lease-or-tenant-term'
     else 'other'
   end as semantic_signal
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname not in ('pg_catalog', 'information_schema')
-  and (
-    p.proname ~* '(occup|vacan|lease|tenant|resident)'
-    or pg_get_functiondef(p.oid) ~* '(occup|vacan|lease|tenant|resident)'
-  )
+  and p.prokind = 'f'
+  and p.proname ~* '(occup|vacan|lease|tenant|resident)'
 order by routine_schema, routine_name, routine_arguments;
 
 select
@@ -162,10 +160,8 @@ occupancy_candidate_routines as (
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname not in ('pg_catalog', 'information_schema')
-    and (
-      p.proname ~* '(occup|vacan|lease|tenant|resident)'
-      or pg_get_functiondef(p.oid) ~* '(occup|vacan|lease|tenant|resident)'
-    )
+    and p.prokind = 'f'
+    and p.proname ~* '(occup|vacan|lease|tenant|resident)'
 )
 select
   occ_cols.count_candidates as occupancy_like_columns,
@@ -184,5 +180,6 @@ select
 from occupancy_candidate_columns occ_cols
 cross join occupancy_candidate_views occ_views
 cross join occupancy_candidate_routines occ_routines;
+
 
 
