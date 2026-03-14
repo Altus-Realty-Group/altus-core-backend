@@ -1,0 +1,14 @@
+{
+  "data": {
+    "assetId": "asset-001",
+    "windowDays": 30,
+    "occupancyRate": 0.22,
+    "maintenanceCostRatio": 0.19,
+    "collectionsRate": 0.94,
+    "delinquentUnits": 4,
+    "openWorkOrders": 6,
+    "netOperatingIncome": 24000.0,
+    "currency": "USD",
+    "lastUpdatedAt": null
+  }
+}

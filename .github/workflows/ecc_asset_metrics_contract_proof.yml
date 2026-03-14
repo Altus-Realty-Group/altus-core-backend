@@ -1,0 +1,43 @@
+name: ecc_asset_metrics_contract_proof
+
+on:
+  pull_request:
+    paths:
+      - "tests/contracts/test_ecc_asset_metrics_contract.py"
+      - "docs/contracts/ECC_ASSET_METRICS_CONTRACT_V1.md"
+      - "docs/contracts/fixtures/ecc_asset_metrics/**"
+      - "azure/functions/asset_ingest/ecc_asset_metrics_handler.py"
+      - "azure/functions/asset_ingest/ecc_asset_metrics_service.py"
+      - ".github/workflows/ecc_asset_metrics_contract_proof.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ecc-asset-metrics-contract-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run ECC asset metrics contract proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests/contracts -p 'test_ecc_asset_metrics_contract.py' -v
+
+      - name: Write contract proof summary
+        shell: bash
+        run: |
+          {
+            echo "ECC ASSET METRICS CONTRACT PROOF"
+            echo "- test module: tests/contracts/test_ecc_asset_metrics_contract.py"
+            echo "- result: pass"
+            echo "- scope: GET /api/ecc/assets/metrics"
+          } >> "$GITHUB_STEP_SUMMARY"
