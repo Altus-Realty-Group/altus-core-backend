@@ -34,6 +34,7 @@ sys.modules.setdefault('azure', fake_azure_module)
 sys.modules.setdefault('azure.functions', fake_func_module)
 
 import ecc_portfolio_summary_handler  # noqa: E402
+import ecc_portfolio_summary_service  # noqa: E402
 
 
 class FakeRequest:
@@ -45,12 +46,22 @@ def load_fixture(name: str) -> dict[str, object]:
     return json.loads((FIXTURE_ROOT / name).read_text(encoding='utf-8'))
 
 
+class FakeBackingSource:
+    def __init__(self, fields):
+        self._fields = fields
+
+    def read_fields(self, portfolio_id: str, as_of: str | None):
+        return self._fields
+
+
 class EccPortfolioSummaryContractTests(unittest.TestCase):
     def setUp(self) -> None:
         self.original_build_portfolio_summary = ecc_portfolio_summary_handler.build_portfolio_summary
+        self.original_default_backing_source = ecc_portfolio_summary_service._build_default_backing_source
 
     def tearDown(self) -> None:
         ecc_portfolio_summary_handler.build_portfolio_summary = self.original_build_portfolio_summary
+        ecc_portfolio_summary_service._build_default_backing_source = self.original_default_backing_source
 
     def test_success_contract_matches_fixture(self) -> None:
         response = ecc_portfolio_summary_handler.handle_ecc_portfolio_summary(
@@ -119,6 +130,27 @@ class EccPortfolioSummaryContractTests(unittest.TestCase):
             json.loads(response.get_body().decode('utf-8')),
             load_fixture('error_internal_response.json'),
         )
+
+    def test_fallback_remains_intact_when_backing_source_is_not_proven(self) -> None:
+        ecc_portfolio_summary_service._build_default_backing_source = lambda: FakeBackingSource(None)
+
+        payload = ecc_portfolio_summary_service.build_portfolio_summary('portfolio-001', '2026-03-13')
+
+        self.assertEqual(payload, load_fixture('success_response.json')['data'])
+
+    def test_asset_count_can_be_backed_without_contract_shape_drift(self) -> None:
+        ecc_portfolio_summary_service._build_default_backing_source = lambda: FakeBackingSource(
+            ecc_portfolio_summary_service.PortfolioSummaryBackingFields(asset_count=27)
+        )
+
+        payload = ecc_portfolio_summary_service.build_portfolio_summary('portfolio-001', '2026-03-13')
+
+        self.assertEqual(set(payload.keys()), set(load_fixture('success_response.json')['data'].keys()))
+        self.assertEqual(payload['assetCount'], 27)
+        self.assertEqual(payload['portfolioId'], 'portfolio-001')
+        self.assertEqual(payload['asOfDate'], '2026-03-13')
+        self.assertEqual(payload['status'], 'stub_ready')
+        self.assertEqual(payload['currency'], 'USD')
 
 
 if __name__ == '__main__':
