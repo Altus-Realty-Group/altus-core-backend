@@ -84,7 +84,7 @@ order by relation_type, table_schema, table_name;
 select
   n.nspname as routine_schema,
   p.proname as routine_name,
-  pg_get_function_identity_arguments(p.oid) as arguments,
+  pg_get_function_identity_arguments(p.oid) as routine_arguments,
   case
     when p.proname ~* '(occup|vacan)' or pg_get_functiondef(p.oid) ~* '(occup|vacan)' then 'occupancy-term'
     when p.proname ~* '(lease|tenant|resident)' or pg_get_functiondef(p.oid) ~* '(lease|tenant|resident)' then 'lease-or-tenant-term'
@@ -97,7 +97,7 @@ where n.nspname not in ('pg_catalog', 'information_schema')
     p.proname ~* '(occup|vacan|lease|tenant|resident)'
     or pg_get_functiondef(p.oid) ~* '(occup|vacan|lease|tenant|resident)'
   )
-order by routine_schema, routine_name, arguments;
+order by routine_schema, routine_name, routine_arguments;
 
 select
   c.table_schema,
@@ -184,3 +184,4 @@ select
 from occupancy_candidate_columns occ_cols
 cross join occupancy_candidate_views occ_views
 cross join occupancy_candidate_routines occ_routines;
+
