@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "windowDays must be 1..365"
+  }
+}
