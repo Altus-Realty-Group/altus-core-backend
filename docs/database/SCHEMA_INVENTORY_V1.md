@@ -130,7 +130,7 @@ Unresolved / intentionally not normalized in this branch:
 - `payload`
 - `created_at`
 - `payload_sha256` (runtime expectation only; proven absent in staging, with current equivalent hash representation observed in `public.assets.external_ids.payload_hash`)
-- `source_record_id`
+- `source_record_id` (runtime expectation only; proven absent in staging, with no equivalent source-record identity field currently proven elsewhere)
 
 Current role:
 - authoritative raw evidence stream for ingest, audit, timeline, and fallback evidence flows per `DATA_MAP_V1`
@@ -311,7 +311,8 @@ Grounding notes:
 
 - `asset_links` is not proven by repo migrations on `main`, and staging proof run `23066495260` confirmed `public.asset_links` is not present in staging.
 - `external_ids` is proven live in staging as `jsonb not null default '{}'::jsonb`, but its canonical repo semantics remain documentation-only until a later decision task.
-- `payload_sha256` (runtime expectation only; proven absent in staging, with current equivalent hash representation observed in `public.assets.external_ids.payload_hash`) and `source_record_id` remain unresolved runtime-only expectations.
+- `payload_sha256` is a runtime-only expectation proven absent in staging, with current equivalent hash representation observed in `public.assets.external_ids.payload_hash`.
+- `source_record_id` is a runtime-only expectation proven absent in staging, with no equivalent source-record identity field currently proven elsewhere.
 - No repo migration on this branch proves any critical view for ECC or price-engine persistence.
 
 ## Staging Reconciliation Proof (2026-03-13)
@@ -328,7 +329,7 @@ Confirmed matches from staging proof:
 
 Confirmed mismatches from staging proof:
 - staging `public.asset_data_raw` exposes `id`, `asset_id`, `source`, `payload_jsonb`, and `fetched_at`, but does not expose the `0002`-era `organization_id`, `payload`, or `created_at` fields that repository migrations also describe
-- staging does not expose runtime-expected `asset_data_raw.payload_sha256` or `asset_data_raw.source_record_id`; later proof run `23069329492` confirmed no equivalent hash key exists in `asset_data_raw.payload_jsonb` and that the current proven equivalent hash representation lives in `public.assets.external_ids.payload_hash`
+- staging does not expose runtime-expected `asset_data_raw.payload_sha256` or `asset_data_raw.source_record_id`; later proof run `23069329492` confirmed no equivalent hash key exists in `asset_data_raw.payload_jsonb` and that the current proven equivalent hash representation lives in `public.assets.external_ids.payload_hash`, while proof run `23073428262` confirmed no equivalent source-record identity field is currently proven in `asset_data_raw.payload_jsonb` or `public.assets.external_ids`
 - staging `public.asset_specs_reconciled` includes a broader shape than either single migration alone proves, including `organization_id`, `spec_version`, `id`, `specs`, `provenance`, `effective_at`, and `created_at`
 - staging proof did not show policy `assets_org_isolation`, so the standalone policy file under `supabase/policies/` is not currently proven as active in staging
 
@@ -379,3 +380,18 @@ Objects still unknown after staging proof:
 
 
 
+
+## Source Record ID Discovery Proof (2026-03-14)
+
+Proof source:
+- `supabase_apply.yml` staging run `23073428262`
+- verification file: `supabase/verification/0007_source_record_id_discovery.sql`
+
+Confirmed results:
+- `public.asset_data_raw.source_record_id` is not present in staging
+- no column-specific indexes or constraints were returned for `source_record_id`
+- no equivalent source-record identity key was found in `public.asset_data_raw.payload_jsonb`
+- no equivalent source-record identity key was found in `public.assets.external_ids`
+
+Decision note:
+- no schema change is justified from this proof alone; the current staging truth is absence in `public.asset_data_raw` with no equivalent source-record identity field currently proven elsewhere
