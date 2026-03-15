@@ -5,19 +5,13 @@ from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Protocol
 
+from server.price_engine.exceptions import TitleRateProviderError
+from server.price_engine.title_rate.provider_config import load_title_rate_provider_config
+from server.price_engine.title_rate.provider_manager import TitleRateProviderManager
 
 _ALLOWED_TRANSACTION_TYPES = {"purchase", "refinance", "sale"}
 _ZERO_MONEY = Decimal("0.00")
 _TITLE_RATE_PROVIDER_ENV = "PRICE_ENGINE_TITLE_RATE_PROVIDER"
-
-
-class TitleRateProviderError(Exception):
-    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.details = details or {}
-
 
 @dataclass(frozen=True)
 class TitleRateQuoteRequest:
@@ -96,23 +90,47 @@ class StubTitleRateProvider:
         )
 
 
-def resolve_title_rate_provider() -> TitleRateProvider:
-    provider_key = os.getenv(_TITLE_RATE_PROVIDER_ENV, "").strip().lower()
-    if not provider_key:
-        raise TitleRateProviderError(
-            "TITLE_RATE_PROVIDER_NOT_CONFIGURED",
-            "No approved title-rate provider is configured.",
-            {"envVar": _TITLE_RATE_PROVIDER_ENV},
+class MockTitleRateProvider:
+    def __init__(self, provider_key: str, warning: str) -> None:
+        self.provider_key = provider_key
+        self._warning = warning
+
+    def quote(self, request: TitleRateQuoteRequest) -> TitleRateQuoteResult:
+        return TitleRateQuoteResult(
+            provider_key=self.provider_key,
+            status="mock",
+            quote_reference=None,
+            totals={
+                "ownerPolicy": _ZERO_MONEY,
+                "lenderPolicy": _ZERO_MONEY,
+                "endorsements": _ZERO_MONEY,
+                "settlementServices": _ZERO_MONEY,
+                "recordingFees": _ZERO_MONEY,
+                "transferTaxes": _ZERO_MONEY,
+                "otherFees": _ZERO_MONEY,
+                "total": _ZERO_MONEY,
+            },
+            line_items=(),
+            assumptions=("Deterministic mock provider response.",),
+            warnings=(self._warning,),
+            expires_at=None,
+            provider_context={"mode": "mock", "requestedProvider": request.provider_context.get("requestedProvider")},
         )
 
-    if provider_key == "stub":
-        return StubTitleRateProvider()
 
-    raise TitleRateProviderError(
-        "UNSUPPORTED_TITLE_RATE_PROVIDER",
-        "Configured title-rate provider is not supported in this build.",
-        {"provider": provider_key},
-    )
+def resolve_title_rate_provider() -> TitleRateProvider:
+    legacy_provider_key = os.getenv(_TITLE_RATE_PROVIDER_ENV, "").strip().lower()
+    if legacy_provider_key:
+        if legacy_provider_key == "stub":
+            return StubTitleRateProvider()
+        raise TitleRateProviderError(
+            "UNSUPPORTED_TITLE_RATE_PROVIDER",
+            "Configured title-rate provider is not supported in this build.",
+            {"provider": legacy_provider_key},
+        )
+
+    manager = TitleRateProviderManager(load_title_rate_provider_config())
+    return manager.resolve_provider()
 
 
 def parse_title_rate_quote_request(payload: dict[str, Any]) -> TitleRateQuoteRequest:
@@ -168,8 +186,13 @@ def parse_title_rate_quote_request(payload: dict[str, Any]) -> TitleRateQuoteReq
 
 def quote_title_rate(payload: dict[str, Any]) -> dict[str, Any]:
     request = parse_title_rate_quote_request(payload)
-    provider = resolve_title_rate_provider()
-    result = provider.quote(request)
+    legacy_provider_key = os.getenv(_TITLE_RATE_PROVIDER_ENV, "").strip().lower()
+    if legacy_provider_key:
+        provider = resolve_title_rate_provider()
+        result = provider.quote(request)
+    else:
+        manager = TitleRateProviderManager(load_title_rate_provider_config())
+        result = manager.quote(request)
     return serialize_title_rate_quote_result(result)
 
 

@@ -6,6 +6,8 @@ Runtime owner: `azure/functions/asset_ingest/price_engine_handler.py`
 
 This document records the currently executable contract for the price engine calculate route. It is grounded in the live handler and service code on `main`.
 
+The deterministic calculation core now lives under `azure/functions/asset_ingest/server/price_engine/`, while this route preserves the existing flat response contract for compatibility.
+
 ## Current Behavior
 
 - Accepts a JSON object request body.
@@ -57,6 +59,7 @@ Notes:
 - Success response is a flat JSON object, not wrapped in `data`.
 - Currency-like numeric fields are rounded to two decimals.
 - `RiskScore` is returned as an integer.
+- The public route shape remains flat even though the underlying calculation core computes a richer internal metric model.
 
 ## Error Contract
 
