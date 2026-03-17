@@ -13,6 +13,8 @@ This folder holds contract-facing documentation for database-backed behavior.
 
 - Current gap: `docs/contracts/ASSET_SURFACE_CONTRACTS_V1.md` is referenced by historical artifacts but is not present on `main`.
 - Current DB inventory authority: `docs/database/SCHEMA_INVENTORY_V1.md`
+- `CORELOGIC_OVERLAY_CONTRACT_V1`: [docs/contracts/CORELOGIC_OVERLAY_CONTRACT_V1.md](/C:/Users/Dionr/OneDrive/Documents/GitHub/altus-core-backend/docs/contracts/CORELOGIC_OVERLAY_CONTRACT_V1.md)
+  Fixture: [docs/contracts/fixtures/corelogic_overlay/mock_response.json](/C:/Users/Dionr/OneDrive/Documents/GitHub/altus-core-backend/docs/contracts/fixtures/corelogic_overlay/mock_response.json)
 
 ## Database Autonomy Linkage
 

@@ -33,6 +33,9 @@ class TitleRateProviderTests(unittest.TestCase):
         self._original_provider = os.environ.get("PRICE_ENGINE_TITLE_RATE_PROVIDER")
 
     def tearDown(self) -> None:
+        os.environ.pop("TITLE_RATE_PROVIDER_ENABLED", None)
+        os.environ.pop("TITLE_RATE_PROVIDER_TYPE", None)
+        os.environ.pop("TITLE_RATE_APPROVAL_REQUIRED", None)
         if self._original_provider is None:
             os.environ.pop("PRICE_ENGINE_TITLE_RATE_PROVIDER", None)
         else:
@@ -126,6 +129,44 @@ class TitleRateProviderTests(unittest.TestCase):
         self.assertEqual(response.status_code, 501)
         payload = json.loads(response.get_body().decode("utf-8"))
         self.assertEqual(payload["error"]["code"], "TITLE_RATE_PROVIDER_NOT_CONFIGURED")
+
+    def test_provider_manager_routes_mock_provider_when_enabled(self) -> None:
+        os.environ.pop("PRICE_ENGINE_TITLE_RATE_PROVIDER", None)
+        os.environ["TITLE_RATE_PROVIDER_ENABLED"] = "true"
+        os.environ["TITLE_RATE_PROVIDER_TYPE"] = "title_window_calculator"
+
+        response = quote_title_rate(
+            {
+                "transactionType": "purchase",
+                "propertyState": "MO",
+                "salesPrice": 425000,
+                "loanAmount": 300000,
+                "providerContext": {"operator": "tester"},
+            }
+        )
+
+        self.assertEqual(response["providerKey"], "title_window_calculator")
+        self.assertEqual(response["status"], "mock")
+        self.assertIn("No browser automation", response["warnings"][0])
+
+    def test_provider_manager_rejects_when_approval_is_required(self) -> None:
+        os.environ.pop("PRICE_ENGINE_TITLE_RATE_PROVIDER", None)
+        os.environ["TITLE_RATE_PROVIDER_ENABLED"] = "true"
+        os.environ["TITLE_RATE_PROVIDER_TYPE"] = "stub"
+        os.environ["TITLE_RATE_APPROVAL_REQUIRED"] = "true"
+
+        with self.assertRaises(TitleRateProviderError) as ctx:
+            quote_title_rate(
+                {
+                    "transactionType": "purchase",
+                    "propertyState": "MO",
+                    "salesPrice": 425000,
+                    "loanAmount": 300000,
+                    "providerContext": {"operator": "tester"},
+                }
+            )
+
+        self.assertEqual(ctx.exception.code, "TITLE_RATE_PROVIDER_APPROVAL_REQUIRED")
 
 
 class _FakeHttpRequest:
