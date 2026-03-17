@@ -8,6 +8,7 @@ Canonical route owner: `azure/functions/asset_ingest/function_app.py`
 |---|---|---|---|---|
 | POST | `/api/assets/ingest` | `assets_ingest` | `azure/functions/asset_ingest/function_app.py` | Accepted live route |
 | POST | `/api/price-engine/calculate` | `price_engine_calculate` | `azure/functions/asset_ingest/function_app.py` | Deterministic price engine calculation core with preserved flat contract output |
+| GET | `/api/price-engine/corelogic-overlay` | `price_engine_corelogic_overlay` | `azure/functions/asset_ingest/function_app.py` | Delegates to `azure/functions/asset_ingest/corelogic_overlay_handler.py` and returns the canonical `CORELOGIC_OVERLAY_CONTRACT_V1` mock-safe payload |
 | POST | `/api/price-engine/title-rate-quote` | `price_engine_title_rate_quote` | `azure/functions/asset_ingest/function_app.py` | Locked title-rate adapter seam with provider control gating and stub/mock providers |
 | GET | `/api/ecc/system/health` | `ecc_system_health` | `azure/functions/asset_ingest/function_app.py` | ECC singleton health stub with deterministic component status values |
 | GET | `/api/ecc/assets/metrics` | `ecc_asset_metrics` | `azure/functions/asset_ingest/function_app.py` | ECC singleton stub for asset metrics with normalized occupancy values |
