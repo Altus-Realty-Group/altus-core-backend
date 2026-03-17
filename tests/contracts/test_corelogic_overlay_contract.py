@@ -61,6 +61,16 @@ class CoreLogicOverlayContractTests(unittest.TestCase):
         self.assertCountEqual(payload.keys(), ["subject", "overlays", "propertyIntelligence", "meta"])
         self.assertCountEqual(payload["subject"].keys(), ["address", "lat", "lng"])
         self.assertIn("corelogicLayerStatus", payload["overlays"])
+        self.assertEqual(payload["overlays"]["parcelBoundary"]["type"], "Polygon")
+        self.assertEqual(
+            len(payload["overlays"]["parcelBoundary"]["coordinates"][0]),
+            5,
+        )
+        self.assertEqual(payload["overlays"]["floodZone"]["geometry"]["type"], "Polygon")
+        self.assertEqual(
+            len(payload["overlays"]["floodZone"]["geometry"]["coordinates"][0]),
+            5,
+        )
         self.assertCountEqual(
             payload["propertyIntelligence"].keys(),
             ["avm", "beds", "baths", "sqFt", "yearBuilt"],

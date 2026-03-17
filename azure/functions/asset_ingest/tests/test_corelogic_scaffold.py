@@ -47,11 +47,34 @@ class CoreLogicScaffoldTests(unittest.TestCase):
                     "lng": -94.5786,
                 },
                 "overlays": {
-                    "parcelBoundary": None,
+                    "parcelBoundary": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [-94.5801, 39.1007],
+                                [-94.5778, 39.1009],
+                                [-94.5774, 39.0988],
+                                [-94.5797, 39.0985],
+                                [-94.5801, 39.1007],
+                            ]
+                        ],
+                    },
                     "floodZone": {
                         "zone": "X",
                         "panel": "MOCK-1001",
                         "effectiveDate": "2024-01-01",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [
+                                    [-94.5796, 39.1016],
+                                    [-94.5768, 39.1014],
+                                    [-94.5762, 39.0995],
+                                    [-94.5789, 39.0992],
+                                    [-94.5796, 39.1016],
+                                ]
+                            ],
+                        },
                     },
                     "corelogicLayerStatus": "mock_ready",
                 },

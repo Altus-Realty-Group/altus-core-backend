@@ -115,6 +115,35 @@ def mock_property_intelligence() -> CoreLogicPropertyIntelligence:
 
 def mock_overlay_payload(*, property_address: str) -> CoreLogicOverlayPayload:
     property_intelligence = mock_property_intelligence()
+    parcel_boundary = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [-94.5801, 39.1007],
+                [-94.5778, 39.1009],
+                [-94.5774, 39.0988],
+                [-94.5797, 39.0985],
+                [-94.5801, 39.1007],
+            ]
+        ],
+    }
+    flood_zone = {
+        "zone": property_intelligence.flood_zone,
+        "panel": "MOCK-1001",
+        "effectiveDate": "2024-01-01",
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [-94.5796, 39.1016],
+                    [-94.5768, 39.1014],
+                    [-94.5762, 39.0995],
+                    [-94.5789, 39.0992],
+                    [-94.5796, 39.1016],
+                ]
+            ],
+        },
+    }
     return CoreLogicOverlayPayload(
         subject=SubjectProperty(
             address=property_address,
@@ -122,12 +151,8 @@ def mock_overlay_payload(*, property_address: str) -> CoreLogicOverlayPayload:
             lng=-94.5786,
         ),
         overlays=PropertyOverlayState(
-            parcel_boundary=None,
-            flood_zone={
-                "zone": property_intelligence.flood_zone,
-                "panel": "MOCK-1001",
-                "effectiveDate": "2024-01-01",
-            },
+            parcel_boundary=parcel_boundary,
+            flood_zone=flood_zone,
             corelogic_layer_status="mock_ready",
         ),
         property_intelligence=NormalizedPropertyIntelligence(
