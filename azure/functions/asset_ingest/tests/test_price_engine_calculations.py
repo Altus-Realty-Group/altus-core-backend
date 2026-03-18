@@ -35,6 +35,9 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self._original_corelogic_allow_live_calls = os.environ.get("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS")
         self._original_corelogic_api_key = os.environ.get("PRICE_ENGINE_CORELOGIC_API_KEY")
         self._original_corelogic_client_id = os.environ.get("PRICE_ENGINE_CORELOGIC_CLIENT_ID")
+        self._original_corelogic_api_base_url = os.environ.get("CORELOGIC_API_BASE_URL")
+        self._original_corelogic_env_client_id = os.environ.get("CORELOGIC_CLIENT_ID")
+        self._original_corelogic_client_secret = os.environ.get("CORELOGIC_CLIENT_SECRET")
 
     def tearDown(self) -> None:
         if self._original_provider is None:
@@ -61,6 +64,18 @@ class PriceEngineCalculationsTests(unittest.TestCase):
             os.environ.pop("PRICE_ENGINE_CORELOGIC_CLIENT_ID", None)
         else:
             os.environ["PRICE_ENGINE_CORELOGIC_CLIENT_ID"] = self._original_corelogic_client_id
+        if self._original_corelogic_api_base_url is None:
+            os.environ.pop("CORELOGIC_API_BASE_URL", None)
+        else:
+            os.environ["CORELOGIC_API_BASE_URL"] = self._original_corelogic_api_base_url
+        if self._original_corelogic_env_client_id is None:
+            os.environ.pop("CORELOGIC_CLIENT_ID", None)
+        else:
+            os.environ["CORELOGIC_CLIENT_ID"] = self._original_corelogic_env_client_id
+        if self._original_corelogic_client_secret is None:
+            os.environ.pop("CORELOGIC_CLIENT_SECRET", None)
+        else:
+            os.environ["CORELOGIC_CLIENT_SECRET"] = self._original_corelogic_client_secret
 
     def test_core_formulas_produce_expected_outputs(self) -> None:
         inputs = build_deal_inputs(
@@ -268,6 +283,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                         "integration_disabled",
                         "mode_disabled",
                     ],
+                    "integrationLiveReady": False,
+                    "integrationLiveReadyLabel": "Live Integration Not Ready",
+                    "integrationCredentialState": "missing",
+                    "integrationCredentialStateLabel": "Credentials Missing",
+                    "integrationGuardSummary": "disabled",
                     "integrationArtifactType": None,
                     "integrationArtifactId": None,
                     "integrationTraceKey": None,
@@ -493,6 +513,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "integration_disabled",
                     "mode_disabled",
                 ],
+                "integrationLiveReady": False,
+                "integrationLiveReadyLabel": "Live Integration Not Ready",
+                "integrationCredentialState": "missing",
+                "integrationCredentialStateLabel": "Credentials Missing",
+                "integrationGuardSummary": "disabled",
                 "integrationArtifactType": None,
                 "integrationArtifactId": None,
                 "integrationTraceKey": None,
@@ -643,6 +668,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "integration_disabled",
                     "mode_disabled",
                 ],
+                "integrationLiveReady": False,
+                "integrationLiveReadyLabel": "Live Integration Not Ready",
+                "integrationCredentialState": "missing",
+                "integrationCredentialStateLabel": "Credentials Missing",
+                "integrationGuardSummary": "disabled",
                 "integrationArtifactType": None,
                 "integrationArtifactId": None,
                 "integrationTraceKey": None,
@@ -706,6 +736,8 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(provenance["titleQuote"]["exportReadiness"], "blocked")
         self.assertEqual(provenance["titleQuote"]["auditCompleteness"], "partial")
         self.assertEqual(provenance["titleQuote"]["integrationState"], "inactive")
+        self.assertFalse(provenance["titleQuote"]["integrationLiveReady"])
+        self.assertEqual(provenance["titleQuote"]["integrationGuardSummary"], "disabled")
         self.assertIsNone(provenance["titleQuote"]["integrationArtifactType"])
         self.assertIsNone(provenance["titleQuote"]["integrationArtifactId"])
         self.assertIsNone(provenance["titleQuote"]["integrationTraceKey"])
@@ -755,6 +787,7 @@ class PriceEngineCalculationsTests(unittest.TestCase):
             provenance["titleQuote"]["integrationReasonCodes"],
             ["integration_disabled", "mode_disabled"],
         )
+        self.assertEqual(provenance["titleQuote"]["integrationCredentialState"], "missing")
         self.assertIsNone(provenance["titleQuote"]["integrationArtifactType"])
         self.assertIsNone(provenance["titleQuote"]["integrationArtifactId"])
         self.assertIsNone(provenance["titleQuote"]["integrationTraceKey"])
@@ -1055,6 +1088,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(scaffold.mode, "disabled")
         self.assertEqual(scaffold.state, "inactive")
         self.assertEqual(scaffold.reason_codes, ["integration_disabled", "mode_disabled"])
+        self.assertFalse(scaffold.live_ready)
+        self.assertEqual(scaffold.live_ready_label, "Live Integration Not Ready")
+        self.assertEqual(scaffold.credential_state, "missing")
+        self.assertEqual(scaffold.credential_state_label, "Credentials Missing")
+        self.assertEqual(scaffold.guard_summary, "disabled")
         self.assertIsNone(scaffold.artifact_type)
         self.assertIsNone(scaffold.artifact_id)
         self.assertIsNone(scaffold.trace_key)
@@ -1079,6 +1117,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(scaffold.mode, "mock")
         self.assertEqual(scaffold.state, "mock_ready")
         self.assertEqual(scaffold.reason_codes, ["mode_mock"])
+        self.assertFalse(scaffold.live_ready)
+        self.assertEqual(scaffold.live_ready_label, "Live Integration Not Ready")
+        self.assertEqual(scaffold.credential_state, "missing")
+        self.assertEqual(scaffold.credential_state_label, "Credentials Missing")
+        self.assertEqual(scaffold.guard_summary, "mock")
         self.assertEqual(scaffold.artifact_type, "corelogic_mock_payload")
         self.assertEqual(scaffold.artifact_id, "corelogic-mock-title-quote-v1")
         self.assertEqual(scaffold.trace_key, "corelogic:mock:corelogic-mock-title-quote-v1")
@@ -1101,6 +1144,8 @@ class PriceEngineCalculationsTests(unittest.TestCase):
             scaffold.reason_codes,
             ["live_calls_not_allowed", "live_mode_enabled"],
         )
+        self.assertFalse(scaffold.live_ready)
+        self.assertEqual(scaffold.guard_summary, "blocked_live_calls_not_allowed")
         self.assertIsNone(scaffold.artifact_type)
         self.assertIsNone(scaffold.artifact_id)
         self.assertIsNone(scaffold.trace_key)
@@ -1121,6 +1166,8 @@ class PriceEngineCalculationsTests(unittest.TestCase):
             scaffold.reason_codes,
             ["live_calls_not_allowed", "live_mode_enabled"],
         )
+        self.assertFalse(scaffold.live_ready)
+        self.assertEqual(scaffold.guard_summary, "blocked_live_calls_not_allowed")
         self.assertIsNone(scaffold.artifact_type)
         self.assertIsNone(scaffold.artifact_id)
         self.assertIsNone(scaffold.trace_key)
@@ -1143,6 +1190,10 @@ class PriceEngineCalculationsTests(unittest.TestCase):
             scaffold.reason_codes,
             ["live_credentials_missing", "live_mode_enabled"],
         )
+        self.assertFalse(scaffold.live_ready)
+        self.assertEqual(scaffold.credential_state, "missing")
+        self.assertEqual(scaffold.credential_state_label, "Credentials Missing")
+        self.assertEqual(scaffold.guard_summary, "blocked_missing_credentials")
         self.assertIsNone(scaffold.artifact_type)
         self.assertIsNone(scaffold.artifact_id)
         self.assertIsNone(scaffold.trace_key)
@@ -1174,6 +1225,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
 
         self.assertEqual(provenance["titleQuote"]["integrationMode"], "mock")
         self.assertEqual(provenance["titleQuote"]["integrationState"], "mock_ready")
+        self.assertFalse(provenance["titleQuote"]["integrationLiveReady"])
+        self.assertEqual(provenance["titleQuote"]["integrationLiveReadyLabel"], "Live Integration Not Ready")
+        self.assertEqual(provenance["titleQuote"]["integrationCredentialState"], "missing")
+        self.assertEqual(provenance["titleQuote"]["integrationCredentialStateLabel"], "Credentials Missing")
+        self.assertEqual(provenance["titleQuote"]["integrationGuardSummary"], "mock")
         self.assertEqual(provenance["titleQuote"]["integrationArtifactType"], "corelogic_mock_payload")
         self.assertEqual(provenance["titleQuote"]["integrationArtifactId"], "corelogic-mock-title-quote-v1")
         self.assertEqual(provenance["titleQuote"]["integrationTraceKey"], "corelogic:mock:corelogic-mock-title-quote-v1")
@@ -1184,6 +1240,43 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         )
         self.assertEqual(provenance["titleQuote"]["integrationMockProfile"], "title_quote_baseline")
         self.assertEqual(provenance["titleQuote"]["integrationMockProfileLabel"], "Title Quote Baseline Mock")
+
+    def test_corelogic_scaffold_live_mode_with_partial_credentials_reports_partial_state(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "live"
+        os.environ["PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS"] = "true"
+        os.environ["CORELOGIC_API_BASE_URL"] = "https://example.test"
+        os.environ["CORELOGIC_CLIENT_ID"] = "client-id"
+        os.environ["CORELOGIC_CLIENT_SECRET"] = "   "
+
+        scaffold = resolve_corelogic_integration_scaffold({})
+
+        self.assertEqual(scaffold.credential_state, "partial")
+        self.assertEqual(scaffold.credential_state_label, "Credentials Partial")
+        self.assertFalse(scaffold.live_ready)
+        self.assertEqual(scaffold.guard_summary, "blocked_missing_credentials")
+
+    def test_corelogic_scaffold_live_mode_with_all_credentials_present_reports_ready_state(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "live"
+        os.environ["PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS"] = "true"
+        os.environ["CORELOGIC_API_BASE_URL"] = "https://example.test"
+        os.environ["CORELOGIC_CLIENT_ID"] = "client-id"
+        os.environ["CORELOGIC_CLIENT_SECRET"] = "client-secret"
+
+        probe = {"called": 0}
+
+        def _live_executor() -> None:
+            probe["called"] += 1
+
+        scaffold = resolve_corelogic_integration_scaffold({}, live_executor=_live_executor)
+
+        self.assertEqual(scaffold.credential_state, "present")
+        self.assertEqual(scaffold.credential_state_label, "Credentials Present")
+        self.assertTrue(scaffold.live_ready)
+        self.assertEqual(scaffold.live_ready_label, "Live Integration Ready")
+        self.assertEqual(scaffold.guard_summary, "ready_for_live")
+        self.assertEqual(probe["called"], 0)
 
 
 if __name__ == "__main__":

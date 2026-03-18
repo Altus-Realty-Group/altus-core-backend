@@ -202,6 +202,11 @@ Response shape:
       "integrationState": "inactive",
       "integrationStateLabel": "Integration Inactive",
       "integrationReasonCodes": [],
+      "integrationLiveReady": false,
+      "integrationLiveReadyLabel": "Live Integration Not Ready",
+      "integrationCredentialState": "missing",
+      "integrationCredentialStateLabel": "Credentials Missing",
+      "integrationGuardSummary": "disabled",
       "integrationArtifactType": null,
       "integrationArtifactId": null,
       "integrationTraceKey": null,
@@ -285,6 +290,11 @@ Notes:
 - `Provenance.titleQuote.integrationState` is `inactive`, `mock_ready`, `live_blocked`, or `live_ready`, derived only from deterministic CoreLogic scaffold config state.
 - `Provenance.titleQuote.integrationStateLabel` is derived only from `integrationState` using `Integration Inactive`, `Mock Integration Ready`, `Live Integration Blocked`, or `Live Integration Ready`.
 - `Provenance.titleQuote.integrationReasonCodes` surfaces unique deterministic config-derived reason codes in fixed order from this set only: `integration_disabled`, `mode_disabled`, `mode_mock`, `live_calls_not_allowed`, `live_credentials_missing`, and `live_mode_enabled`.
+- `Provenance.titleQuote.integrationLiveReady` is `true` only when the CoreLogic scaffold is configured for live mode, live calls are explicitly allowed, and all required credential-presence checks pass; otherwise it is `false`.
+- `Provenance.titleQuote.integrationLiveReadyLabel` is derived only from `integrationLiveReady` using `Live Integration Ready` or `Live Integration Not Ready`.
+- `Provenance.titleQuote.integrationCredentialState` is `missing`, `partial`, or `present`, derived only from presence checks on `CORELOGIC_API_BASE_URL`, `CORELOGIC_CLIENT_ID`, and `CORELOGIC_CLIENT_SECRET`.
+- `Provenance.titleQuote.integrationCredentialStateLabel` is derived only from `integrationCredentialState` using `Credentials Missing`, `Credentials Partial`, or `Credentials Present`.
+- `Provenance.titleQuote.integrationGuardSummary` is `disabled`, `mock`, `blocked_missing_credentials`, `blocked_live_calls_not_allowed`, or `ready_for_live`, derived only from deterministic CoreLogic config and credential guard evaluation.
 - `Provenance.titleQuote.integrationArtifactType`, `integrationArtifactId`, `integrationTraceKey`, `integrationEventType`, `integrationEventRef`, `integrationMockProfile`, and `integrationMockProfileLabel` are additive CoreLogic scaffold fields and remain `null` unless the scaffold resolves to `mock` mode.
 - In `mock` mode, those fields are populated deterministically with `corelogic_mock_payload`, `corelogic-mock-title-quote-v1`, `corelogic:mock:corelogic-mock-title-quote-v1`, `corelogic_mock_title_quote`, `integration-event:corelogic:mock:corelogic-mock-title-quote-v1`, `title_quote_baseline`, and `Title Quote Baseline Mock`.
 - `Provenance.titleQuote.exportReadiness` is `ready`, `conditional`, or `blocked`, derived only from deterministic provenance completeness and warning-state checks.

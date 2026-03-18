@@ -32,6 +32,11 @@ class CoreLogicIntegrationScaffold:
     state: str
     state_label: str
     reason_codes: list[str]
+    live_ready: bool
+    live_ready_label: str
+    credential_state: str
+    credential_state_label: str
+    guard_summary: str
     artifact_type: str | None
     artifact_id: str | None
     trace_key: str | None
@@ -53,13 +58,15 @@ def resolve_corelogic_integration_scaffold(
     enabled = _resolve_enabled(scaffold_context)
     mode = _resolve_mode(scaffold_context)
     allow_live_calls = _resolve_allow_live_calls(scaffold_context)
-    credentials_present = _resolve_credentials_present(scaffold_context)
+    credential_state = _resolve_credential_state(scaffold_context)
 
     if not enabled:
         return _build_scaffold(
             mode=CORELOGIC_MODE_DISABLED if mode == CORELOGIC_MODE_DISABLED else mode,
             state=CORELOGIC_STATE_INACTIVE,
             reason_codes=["integration_disabled", "mode_disabled"] if mode == CORELOGIC_MODE_DISABLED else ["integration_disabled"],
+            credential_state=credential_state,
+            guard_summary="disabled",
             mock_payload=None,
         )
 
@@ -68,6 +75,8 @@ def resolve_corelogic_integration_scaffold(
             mode=mode,
             state=CORELOGIC_STATE_INACTIVE,
             reason_codes=["mode_disabled"],
+            credential_state=credential_state,
+            guard_summary="disabled",
             mock_payload=None,
         )
 
@@ -76,6 +85,8 @@ def resolve_corelogic_integration_scaffold(
             mode=mode,
             state=CORELOGIC_STATE_MOCK_READY,
             reason_codes=["mode_mock"],
+            credential_state=credential_state,
+            guard_summary="mock",
             mock_payload=_build_mock_payload(),
         )
 
@@ -84,14 +95,18 @@ def resolve_corelogic_integration_scaffold(
             mode=mode,
             state=CORELOGIC_STATE_LIVE_BLOCKED,
             reason_codes=["live_calls_not_allowed", "live_mode_enabled"],
+            credential_state=credential_state,
+            guard_summary="blocked_live_calls_not_allowed",
             mock_payload=None,
         )
 
-    if not credentials_present:
+    if credential_state != "present":
         return _build_scaffold(
             mode=mode,
             state=CORELOGIC_STATE_LIVE_BLOCKED,
             reason_codes=["live_credentials_missing", "live_mode_enabled"],
+            credential_state=credential_state,
+            guard_summary="blocked_missing_credentials",
             mock_payload=None,
         )
 
@@ -99,6 +114,8 @@ def resolve_corelogic_integration_scaffold(
         mode=mode,
         state=CORELOGIC_STATE_LIVE_READY,
         reason_codes=["live_mode_enabled"],
+        credential_state=credential_state,
+        guard_summary="ready_for_live",
         mock_payload=None,
     )
 
@@ -108,14 +125,22 @@ def _build_scaffold(
     mode: str,
     state: str,
     reason_codes: list[str],
+    credential_state: str,
+    guard_summary: str,
     mock_payload: dict[str, Any] | None,
 ) -> CoreLogicIntegrationScaffold:
+    live_ready = guard_summary == "ready_for_live"
     return CoreLogicIntegrationScaffold(
         provider=CORELOGIC_PROVIDER_KEY,
         mode=mode,
         state=state,
         state_label=_build_state_label(state),
         reason_codes=_ordered_unique_reason_codes(reason_codes),
+        live_ready=live_ready,
+        live_ready_label=_build_live_ready_label(live_ready),
+        credential_state=credential_state,
+        credential_state_label=_build_credential_state_label(credential_state),
+        guard_summary=guard_summary,
         artifact_type=_build_artifact_type(mode),
         artifact_id=_build_artifact_id(mode),
         trace_key=_build_trace_key(mode),
@@ -135,6 +160,20 @@ def _build_state_label(state: str) -> str:
     if state == CORELOGIC_STATE_LIVE_READY:
         return "Live Integration Ready"
     return "Integration Inactive"
+
+
+def _build_live_ready_label(live_ready: bool) -> str:
+    if live_ready:
+        return "Live Integration Ready"
+    return "Live Integration Not Ready"
+
+
+def _build_credential_state_label(credential_state: str) -> str:
+    if credential_state == "present":
+        return "Credentials Present"
+    if credential_state == "partial":
+        return "Credentials Partial"
+    return "Credentials Missing"
 
 
 def _ordered_unique_reason_codes(reason_codes: list[str]) -> list[str]:
@@ -221,13 +260,24 @@ def _resolve_allow_live_calls(scaffold_context: dict[str, Any]) -> bool:
     return _env_flag("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS")
 
 
-def _resolve_credentials_present(scaffold_context: dict[str, Any]) -> bool:
-    override = scaffold_context.get("credentialsPresent")
-    if isinstance(override, bool):
-        return override
-    api_key = os.environ.get("PRICE_ENGINE_CORELOGIC_API_KEY", "").strip()
-    client_id = os.environ.get("PRICE_ENGINE_CORELOGIC_CLIENT_ID", "").strip()
-    return bool(api_key or client_id)
+def _resolve_credential_state(scaffold_context: dict[str, Any]) -> str:
+    override = scaffold_context.get("credentialPresence")
+    if isinstance(override, str):
+        normalized = override.strip().lower()
+        if normalized in {"missing", "partial", "present"}:
+            return normalized
+
+    provided_values = [
+        os.environ.get("CORELOGIC_API_BASE_URL", "").strip(),
+        os.environ.get("CORELOGIC_CLIENT_ID", "").strip(),
+        os.environ.get("CORELOGIC_CLIENT_SECRET", "").strip(),
+    ]
+    present_count = sum(1 for value in provided_values if value)
+    if present_count == 0:
+        return "missing"
+    if present_count == len(provided_values):
+        return "present"
+    return "partial"
 
 
 def _scaffold_context(provider_context: dict[str, Any] | None) -> dict[str, Any]:

@@ -112,6 +112,11 @@
         "integration_disabled",
         "mode_disabled"
       ],
+      "integrationLiveReady": false,
+      "integrationLiveReadyLabel": "Live Integration Not Ready",
+      "integrationCredentialState": "missing",
+      "integrationCredentialStateLabel": "Credentials Missing",
+      "integrationGuardSummary": "disabled",
       "integrationArtifactType": null,
       "integrationArtifactId": null,
       "integrationTraceKey": null,
