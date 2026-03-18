@@ -54,6 +54,9 @@
       "sourceWarningSeverities": [
         "info"
       ],
+      "warningFamilies": [
+        "provider"
+      ],
       "warningSummary": {
         "highestSeverity": "info",
         "hasCritical": false,
@@ -66,11 +69,20 @@
         "info": 1,
         "total": 1
       },
+      "warningFamilyCounts": {
+        "provider": 1,
+        "snapshot": 0,
+        "fallback": 0,
+        "compatibility": 0,
+        "availability": 0
+      },
       "exportArtifactId": null,
       "exportArtifactType": null,
       "exportTraceKey": null,
       "sourceTraceKey": "stub:stub:stub",
       "snapshotTraceKey": null,
+      "sourceEventType": "title_quote_stub",
+      "snapshotEventType": null,
       "sourceEventRef": "source-event:stub:stub:stub",
       "snapshotEventRef": null
     },

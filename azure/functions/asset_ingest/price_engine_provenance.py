@@ -34,8 +34,10 @@ def build_price_engine_provenance(
         _warning_code_severity(code)
         for code in source_warning_codes
     ]
+    warning_families = _build_warning_families(source_warning_codes)
     warning_summary = _build_warning_summary(source_warning_severities)
     warning_counts = _build_warning_counts(source_warning_severities)
+    warning_family_counts = _build_warning_family_counts(warning_families)
     export_artifact_id = _string_or_none(title_quote_context.provider_context.get("exportArtifactId"))
     export_artifact_type = _string_or_none(title_quote_context.provider_context.get("exportArtifactType"))
     quote_reference = title_quote_context.quote_reference
@@ -64,8 +66,10 @@ def build_price_engine_provenance(
             "sourceWarnings": source_warnings,
             "sourceWarningCodes": source_warning_codes,
             "sourceWarningSeverities": source_warning_severities,
+            "warningFamilies": warning_families,
             "warningSummary": warning_summary,
             "warningCounts": warning_counts,
+            "warningFamilyCounts": warning_family_counts,
             "exportArtifactId": export_artifact_id,
             "exportArtifactType": export_artifact_type,
             "exportTraceKey": _build_export_trace_key(
@@ -76,6 +80,8 @@ def build_price_engine_provenance(
             ),
             "sourceTraceKey": source_trace_key,
             "snapshotTraceKey": snapshot_trace_key,
+            "sourceEventType": _build_source_event_type(status=status),
+            "snapshotEventType": _build_snapshot_event_type(snapshot_trace_key=snapshot_trace_key),
             "sourceEventRef": _build_event_ref("source-event", source_trace_key),
             "snapshotEventRef": _build_event_ref("snapshot-event", snapshot_trace_key),
         },
@@ -162,6 +168,27 @@ def _warning_code_severity(code: str) -> str:
     return "info"
 
 
+def _build_warning_families(codes: list[str]) -> list[str]:
+    families: list[str] = []
+    for code in codes:
+        family = _warning_code_family(code)
+        if family not in families:
+            families.append(family)
+    return families
+
+
+def _warning_code_family(code: str) -> str:
+    if code in {"stub_provider_used", "liberty_iframe_no_backend_api"}:
+        return "provider"
+    if code in {"snapshot_missing_required_fields", "snapshot_expired"}:
+        return "snapshot"
+    if code == "fallback_stub_used":
+        return "fallback"
+    if code == "legacy_quote_alias_normalized":
+        return "compatibility"
+    return "availability"
+
+
 def _build_warning_summary(severities: list[str]) -> dict[str, Any]:
     highest_severity = None
     if "critical" in severities:
@@ -188,10 +215,38 @@ def _build_warning_counts(severities: list[str]) -> dict[str, int]:
     }
 
 
+def _build_warning_family_counts(families: list[str]) -> dict[str, int]:
+    return {
+        "provider": families.count("provider"),
+        "snapshot": families.count("snapshot"),
+        "fallback": families.count("fallback"),
+        "compatibility": families.count("compatibility"),
+        "availability": families.count("availability"),
+    }
+
+
 def _build_event_ref(prefix: str, trace_key: str | None) -> str | None:
     if trace_key is None:
         return None
     return f"{prefix}:{trace_key}"
+
+
+def _build_source_event_type(*, status: str) -> str | None:
+    if status == "quoted":
+        return "title_quote_source"
+    if status == "fallback_stub":
+        return "title_quote_fallback"
+    if status == "stub":
+        return "title_quote_stub"
+    if status == "not_requested":
+        return None
+    return "title_quote_status"
+
+
+def _build_snapshot_event_type(*, snapshot_trace_key: str | None) -> str | None:
+    if snapshot_trace_key is None:
+        return None
+    return "title_quote_snapshot"
 
 
 def _build_source_trace_key(*, provider: str, status: str, source: str) -> str:
