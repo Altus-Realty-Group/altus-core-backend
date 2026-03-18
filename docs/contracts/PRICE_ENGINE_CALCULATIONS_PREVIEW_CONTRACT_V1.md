@@ -154,6 +154,10 @@ Response shape:
       "warningFamilies": [],
       "warningFamilySummary": [],
       "warningFamilySummaryLabel": null,
+      "warningFamilyDisplayPriority": null,
+      "warningFamilyDisplayLabel": null,
+      "warningFamilyDisplaySeverity": null,
+      "warningFamilyDisplayCount": 0,
       "warningSummary": {
         "highestSeverity": null,
         "hasCritical": false,
@@ -240,6 +244,10 @@ Notes:
 - `Provenance.titleQuote.sourceWarningSeverities` surfaces positional machine-usable severities aligned to `sourceWarningCodes`, using `info`, `warning`, and `critical`.
 - `Provenance.titleQuote.warningFamilies` surfaces deterministic family rollups such as `provider`, `snapshot`, `fallback`, `compatibility`, and `availability` for the warning codes present in the response.
 - `Provenance.titleQuote.warningFamilySummary` surfaces the active family list in compact deterministic form, and `warningFamilySummaryLabel` surfaces a human-readable label derived only from that active family list.
+- `Provenance.titleQuote.warningFamilyDisplayPriority` selects a single display family using the fixed priority order `fallback`, `availability`, `provider`, `compatibility`, `snapshot`.
+- `Provenance.titleQuote.warningFamilyDisplayLabel` surfaces the compact label for the selected display family using `Fallback Warning`, `Availability Warning`, `Provider Warning`, `Compatibility Warning`, or `Snapshot Warning`.
+- `Provenance.titleQuote.warningFamilyDisplaySeverity` surfaces the highest applicable severity for the selected display family using existing warning state only, and otherwise falls back to the overall warning-summary severity.
+- `Provenance.titleQuote.warningFamilyDisplayCount` surfaces the selected display family's count from `warningFamilyCounts`, or `0` when no family is active.
 - `Provenance.titleQuote.warningSummary` surfaces compact grouped warning state with `highestSeverity`, `hasCritical`, `hasWarning`, and `hasInfo`.
 - `Provenance.titleQuote.warningCounts` surfaces deterministic grouped warning counts for `critical`, `warning`, `info`, and `total`.
 - `Provenance.titleQuote.warningFamilyCounts` surfaces deterministic counts for the current warning families `provider`, `snapshot`, `fallback`, `compatibility`, and `availability`.

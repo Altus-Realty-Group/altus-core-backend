@@ -40,6 +40,17 @@ def build_price_engine_provenance(
     warning_summary = _build_warning_summary(source_warning_severities)
     warning_counts = _build_warning_counts(source_warning_severities)
     warning_family_counts = _build_warning_family_counts(warning_families)
+    warning_family_display_priority = _build_warning_family_display_priority(warning_family_counts)
+    warning_family_display_label = _build_warning_family_display_label(warning_family_display_priority)
+    warning_family_display_severity = _build_warning_family_display_severity(
+        selected_family=warning_family_display_priority,
+        warning_codes=source_warning_codes,
+        warning_summary=warning_summary,
+    )
+    warning_family_display_count = _build_warning_family_display_count(
+        selected_family=warning_family_display_priority,
+        warning_family_counts=warning_family_counts,
+    )
     export_artifact_id = _string_or_none(title_quote_context.provider_context.get("exportArtifactId"))
     export_artifact_type = _string_or_none(title_quote_context.provider_context.get("exportArtifactType"))
     quote_reference = title_quote_context.quote_reference
@@ -81,6 +92,10 @@ def build_price_engine_provenance(
             "warningFamilies": warning_families,
             "warningFamilySummary": warning_family_summary,
             "warningFamilySummaryLabel": warning_family_summary_label,
+            "warningFamilyDisplayPriority": warning_family_display_priority,
+            "warningFamilyDisplayLabel": warning_family_display_label,
+            "warningFamilyDisplaySeverity": warning_family_display_severity,
+            "warningFamilyDisplayCount": warning_family_display_count,
             "warningSummary": warning_summary,
             "warningCounts": warning_counts,
             "warningFamilyCounts": warning_family_counts,
@@ -227,6 +242,56 @@ def _build_warning_family_summary_label(families: list[str]) -> str | None:
     return ", ".join(families)
 
 
+def _build_warning_family_display_priority(warning_family_counts: dict[str, int]) -> str | None:
+    for family in ("fallback", "availability", "provider", "compatibility", "snapshot"):
+        if warning_family_counts.get(family, 0) > 0:
+            return family
+    return None
+
+
+def _build_warning_family_display_label(selected_family: str | None) -> str | None:
+    if selected_family == "fallback":
+        return "Fallback Warning"
+    if selected_family == "availability":
+        return "Availability Warning"
+    if selected_family == "provider":
+        return "Provider Warning"
+    if selected_family == "compatibility":
+        return "Compatibility Warning"
+    if selected_family == "snapshot":
+        return "Snapshot Warning"
+    return None
+
+
+def _build_warning_family_display_severity(
+    *,
+    selected_family: str | None,
+    warning_codes: list[str],
+    warning_summary: dict[str, Any],
+) -> str | None:
+    if selected_family is None:
+        return None
+
+    severities = [
+        _warning_code_severity(code)
+        for code in warning_codes
+        if _warning_code_family(code) == selected_family
+    ]
+    if severities:
+        return _highest_severity(severities)
+    return warning_summary.get("highestSeverity")
+
+
+def _build_warning_family_display_count(
+    *,
+    selected_family: str | None,
+    warning_family_counts: dict[str, int],
+) -> int:
+    if selected_family is None:
+        return 0
+    return int(warning_family_counts.get(selected_family, 0))
+
+
 def _build_warning_counts(severities: list[str]) -> dict[str, int]:
     return {
         "critical": severities.count("critical"),
@@ -244,6 +309,16 @@ def _build_warning_family_counts(families: list[str]) -> dict[str, int]:
         "compatibility": families.count("compatibility"),
         "availability": families.count("availability"),
     }
+
+
+def _highest_severity(severities: list[str]) -> str | None:
+    if "critical" in severities:
+        return "critical"
+    if "warning" in severities:
+        return "warning"
+    if "info" in severities:
+        return "info"
+    return None
 
 
 def _build_event_ref(prefix: str, trace_key: str | None) -> str | None:

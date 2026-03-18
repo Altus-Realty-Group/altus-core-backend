@@ -191,6 +191,10 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                         "provider",
                     ],
                     "warningFamilySummaryLabel": "provider",
+                    "warningFamilyDisplayPriority": "provider",
+                    "warningFamilyDisplayLabel": "Provider Warning",
+                    "warningFamilyDisplaySeverity": "info",
+                    "warningFamilyDisplayCount": 1,
                     "warningSummary": {
                         "highestSeverity": "info",
                         "hasCritical": False,
@@ -384,6 +388,10 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "provider",
                 ],
                 "warningFamilySummaryLabel": "provider",
+                "warningFamilyDisplayPriority": "provider",
+                "warningFamilyDisplayLabel": "Provider Warning",
+                "warningFamilyDisplaySeverity": "warning",
+                "warningFamilyDisplayCount": 1,
                 "warningSummary": {
                     "highestSeverity": "warning",
                     "hasCritical": False,
@@ -508,6 +516,10 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "availability",
                 ],
                 "warningFamilySummaryLabel": "fallback, availability",
+                "warningFamilyDisplayPriority": "fallback",
+                "warningFamilyDisplayLabel": "Fallback Warning",
+                "warningFamilyDisplaySeverity": "warning",
+                "warningFamilyDisplayCount": 1,
                 "warningSummary": {
                     "highestSeverity": "critical",
                     "hasCritical": True,
@@ -569,6 +581,10 @@ class PriceEngineCalculationsTests(unittest.TestCase):
             validation_warnings=[],
         )
 
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayPriority"], None)
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayLabel"], None)
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplaySeverity"], None)
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayCount"], 0)
         self.assertEqual(
             provenance["titleQuote"]["sourceEventBundle"],
             {
@@ -601,6 +617,10 @@ class PriceEngineCalculationsTests(unittest.TestCase):
             validation_warnings=[],
         )
 
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayPriority"], None)
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayLabel"], None)
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplaySeverity"], None)
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayCount"], 0)
         self.assertEqual(
             provenance["titleQuote"]["sourceEventBundle"],
             {
@@ -615,6 +635,66 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "isComplete": False,
             },
         )
+
+    def test_warning_family_display_priority_honors_exact_priority_order(self) -> None:
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="liberty",
+                status="fallback_stub",
+                quote_reference=None,
+                expires_at=None,
+                warnings=[
+                    "Legacy Liberty quote alias was normalized into the canonical snapshot ingest shape.",
+                    "Liberty quote retrieval is unavailable because no approved Liberty snapshot was provided to the ingest path.",
+                ],
+                assumptions=[],
+                provider_context={
+                    "source": "liberty_iframe_snapshot",
+                    "snapshotVersion": "legacy-v0",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(
+            provenance["titleQuote"]["warningFamilies"],
+            ["fallback", "availability", "compatibility"],
+        )
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayPriority"], "fallback")
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayLabel"], "Fallback Warning")
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplaySeverity"], "warning")
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayCount"], 1)
+
+    def test_warning_family_display_severity_uses_selected_family_severity(self) -> None:
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="liberty",
+                status="quoted",
+                quote_reference="LIA-SNAPSHOT-1",
+                expires_at="2026-03-18T15:00:00Z",
+                warnings=[],
+                assumptions=[],
+                provider_context={
+                    "source": "liberty_iframe_snapshot",
+                    "snapshotVersion": "v1",
+                    "quotedAt": "2026-03-18T15:45:00Z",
+                    "capturedAt": "2026-03-18T15:46:00Z",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(provenance["titleQuote"]["warningFamilies"], ["snapshot"])
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayPriority"], "snapshot")
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayLabel"], "Snapshot Warning")
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplaySeverity"], "critical")
+        self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayCount"], 1)
 
 
 if __name__ == "__main__":

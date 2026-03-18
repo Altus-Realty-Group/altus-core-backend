@@ -61,6 +61,10 @@
         "provider"
       ],
       "warningFamilySummaryLabel": "provider",
+      "warningFamilyDisplayPriority": "provider",
+      "warningFamilyDisplayLabel": "Provider Warning",
+      "warningFamilyDisplaySeverity": "info",
+      "warningFamilyDisplayCount": 1,
       "warningSummary": {
         "highestSeverity": "info",
         "hasCritical": false,
