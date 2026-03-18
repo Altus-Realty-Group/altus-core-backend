@@ -48,8 +48,10 @@
       "sourceWarnings": [
         "Stub response only. Vendor implementation remains disabled pending an approved API or documented embed bridge."
       ],
+      "sourceWarningCodes": [],
       "exportArtifactId": null,
-      "exportArtifactType": null
+      "exportArtifactType": null,
+      "exportTraceKey": null
     },
     "scenario": {
       "profile": "flip",

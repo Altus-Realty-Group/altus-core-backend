@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from price_engine_title_quote_context import PriceEngineTitleQuoteContext
@@ -18,20 +19,40 @@ def build_price_engine_provenance(
         str(title_quote_context.provider_context.get("source") or "").strip()
         or _source_from_status(status)
     )
+    source_warnings = list(title_quote_context.warnings)
+    source_warning_codes = _build_source_warning_codes(
+        status=status,
+        source=source,
+        snapshot_version=_string_or_none(title_quote_context.provider_context.get("snapshotVersion")),
+        expires_at=title_quote_context.expires_at,
+        quoted_at=_string_or_none(title_quote_context.provider_context.get("quotedAt")),
+        captured_at=_string_or_none(title_quote_context.provider_context.get("capturedAt")),
+        warnings=source_warnings,
+    )
+    export_artifact_id = _string_or_none(title_quote_context.provider_context.get("exportArtifactId"))
+    export_artifact_type = _string_or_none(title_quote_context.provider_context.get("exportArtifactType"))
+    quote_reference = title_quote_context.quote_reference
 
     return {
         "titleQuote": {
             "provider": provider,
             "status": status,
             "source": source,
-            "quoteReference": title_quote_context.quote_reference,
+            "quoteReference": quote_reference,
             "snapshotVersion": _string_or_none(title_quote_context.provider_context.get("snapshotVersion")),
             "quotedAt": _string_or_none(title_quote_context.provider_context.get("quotedAt")),
             "capturedAt": _string_or_none(title_quote_context.provider_context.get("capturedAt")),
             "expiresAt": title_quote_context.expires_at,
-            "sourceWarnings": list(title_quote_context.warnings),
-            "exportArtifactId": _string_or_none(title_quote_context.provider_context.get("exportArtifactId")),
-            "exportArtifactType": _string_or_none(title_quote_context.provider_context.get("exportArtifactType")),
+            "sourceWarnings": source_warnings,
+            "sourceWarningCodes": source_warning_codes,
+            "exportArtifactId": export_artifact_id,
+            "exportArtifactType": export_artifact_type,
+            "exportTraceKey": _build_export_trace_key(
+                provider=provider,
+                export_artifact_type=export_artifact_type,
+                export_artifact_id=export_artifact_id,
+                quote_reference=quote_reference,
+            ),
         },
         "scenario": {
             "profile": scenario_profile,
@@ -50,6 +71,77 @@ def _source_from_status(status: str) -> str:
     if status == "quoted":
         return "provider_quote"
     return "not_requested"
+
+
+def _build_source_warning_codes(
+    *,
+    status: str,
+    source: str,
+    snapshot_version: str | None,
+    expires_at: str | None,
+    quoted_at: str | None,
+    captured_at: str | None,
+    warnings: list[str],
+) -> list[str]:
+    codes: list[str] = []
+
+    if status == "fallback_stub":
+        codes.append("fallback_stub_used")
+
+    normalized_warnings = [warning.lower() for warning in warnings]
+
+    if source == "liberty_iframe_snapshot" and any(
+        "tokenized app launch rather than a documented backend quote api" in warning
+        for warning in normalized_warnings
+    ):
+        codes.append("liberty_iframe_no_backend_api")
+
+    if any("incomplete or invalid" in warning for warning in normalized_warnings):
+        codes.append("snapshot_missing_required_fields")
+
+    if any("no approved liberty snapshot was provided" in warning for warning in normalized_warnings):
+        codes.append("quote_source_unavailable")
+
+    if snapshot_version == "legacy-v0":
+        codes.append("legacy_quote_alias_normalized")
+
+    if _is_expired(expires_at=expires_at, quoted_at=quoted_at, captured_at=captured_at):
+        codes.append("snapshot_expired")
+
+    return codes
+
+
+def _build_export_trace_key(
+    *,
+    provider: str,
+    export_artifact_type: str | None,
+    export_artifact_id: str | None,
+    quote_reference: str | None,
+) -> str | None:
+    if export_artifact_type and export_artifact_id:
+        return f"{provider}:{export_artifact_type}:{export_artifact_id}"
+    if quote_reference:
+        return f"{provider}:quote:{quote_reference}"
+    return None
+
+
+def _is_expired(*, expires_at: str | None, quoted_at: str | None, captured_at: str | None) -> bool:
+    if expires_at is None:
+        return False
+    expires_at_value = _parse_iso8601(expires_at)
+    if expires_at_value is None:
+        return False
+    reference_time = _parse_iso8601(captured_at or quoted_at or "")
+    if reference_time is None:
+        return False
+    return expires_at_value <= reference_time
+
+
+def _parse_iso8601(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def _string_or_none(value: Any) -> str | None:

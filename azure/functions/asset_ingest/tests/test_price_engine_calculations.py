@@ -176,8 +176,10 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "sourceWarnings": [
                         "Stub response only. Vendor implementation remains disabled pending an approved API or documented embed bridge."
                     ],
+                    "sourceWarningCodes": [],
                     "exportArtifactId": None,
                     "exportArtifactType": None,
+                    "exportTraceKey": None,
                 },
                 "scenario": {
                     "profile": "flip",
@@ -319,8 +321,12 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "sourceWarnings": [
                     "Liberty public iframe currently exposes a tokenized app launch rather than a documented backend quote API."
                 ],
+                "sourceWarningCodes": [
+                    "liberty_iframe_no_backend_api",
+                ],
                 "exportArtifactId": "liberty-export-001",
                 "exportArtifactType": "title_quote_snapshot",
+                "exportTraceKey": "liberty:title_quote_snapshot:liberty-export-001",
             },
         )
         self.assertEqual(metrics["Provenance"]["trace"]["generatedAt"], None)
@@ -389,8 +395,13 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "Liberty quote retrieval is unavailable because no approved Liberty snapshot was provided to the ingest path.",
                     "No order was placed and no unsupported browser automation or scraping was attempted.",
                 ],
+                "sourceWarningCodes": [
+                    "fallback_stub_used",
+                    "quote_source_unavailable",
+                ],
                 "exportArtifactId": None,
                 "exportArtifactType": None,
+                "exportTraceKey": None,
             },
         )
 

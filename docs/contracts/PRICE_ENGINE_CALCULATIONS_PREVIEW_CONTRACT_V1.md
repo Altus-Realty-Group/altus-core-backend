@@ -149,8 +149,10 @@ Response shape:
       "capturedAt": null,
       "expiresAt": null,
       "sourceWarnings": [],
+      "sourceWarningCodes": [],
       "exportArtifactId": null,
-      "exportArtifactType": null
+      "exportArtifactType": null,
+      "exportTraceKey": null
     },
     "scenario": {
       "profile": "string",
@@ -194,7 +196,9 @@ Notes:
 - `Provenance.titleQuote.snapshotVersion` surfaces the normalized snapshot version when available.
 - `Provenance.titleQuote.quotedAt`, `capturedAt`, and `expiresAt` surface normalized quote-timing metadata when available and are otherwise `null`.
 - `Provenance.titleQuote.sourceWarnings` surfaces deterministic source-quality warnings already known in the quote-response path, including stub use, fallback use, and legacy alias normalization.
+- `Provenance.titleQuote.sourceWarningCodes` surfaces deterministic machine-usable warning codes such as `liberty_iframe_no_backend_api`, `fallback_stub_used`, `snapshot_missing_required_fields`, `snapshot_expired`, `legacy_quote_alias_normalized`, and `quote_source_unavailable` when those conditions are already known in the current response path.
 - `Provenance.titleQuote.exportArtifactId` and `exportArtifactType` surface export-reference metadata when the normalized quote source provides it and are otherwise `null`.
+- `Provenance.titleQuote.exportTraceKey` surfaces a deterministic trace key derived from `exportArtifactType` plus `exportArtifactId` when available, and otherwise falls back to a provider-plus-quote-reference key when one exists.
 - `Provenance.scenario.profile` echoes the selected scenario profile.
 - `Provenance.scenario.appliedPresetFields` and `Provenance.scenario.validationWarnings` repeat the normalized assumption path used for the calculation.
 - `Provenance.trace.generatedAt` is returned as `null` in this slice to preserve deterministic responses while reserving the trace field for future additive timing metadata.
