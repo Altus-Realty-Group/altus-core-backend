@@ -20,5 +20,19 @@
   "NetDispositionProceeds": 101104.94,
   "ScenarioProfile": "flip",
   "AppliedPresetFields": [],
-  "ValidationWarnings": []
+  "ValidationWarnings": [],
+  "Disclaimers": {
+    "calculation": {
+      "message": "Calculated outputs are deterministic underwriting estimates based on the inputs and modeled assumptions provided to this backend response.",
+      "warnings": []
+    },
+    "dataSources": {
+      "message": "Third-party source data, including vendor quote inputs and mapped property data, is normalized for modeling but may be incomplete, delayed, or unavailable at the time of calculation.",
+      "warnings": []
+    },
+    "useDecision": {
+      "message": "This response is decision-support output only and must not be treated as legal, title, lending, appraisal, or investment advice or as a binding commitment.",
+      "warnings": []
+    }
+  }
 }

@@ -149,6 +149,18 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(metrics["ScenarioProfile"], "flip")
         self.assertEqual(metrics["AppliedPresetFields"], [])
         self.assertEqual(metrics["ValidationWarnings"], [])
+        self.assertEqual(
+            metrics["Disclaimers"]["calculation"]["message"],
+            "Calculated outputs are deterministic underwriting estimates based on the inputs and modeled assumptions provided to this backend response.",
+        )
+        self.assertEqual(
+            metrics["Disclaimers"]["dataSources"]["warnings"],
+            [],
+        )
+        self.assertIn(
+            "decision-support output only",
+            metrics["Disclaimers"]["useDecision"]["message"],
+        )
 
     def test_service_applies_missing_preset_fields_without_overriding_explicit_values(self) -> None:
         os.environ.pop("PRICE_ENGINE_TITLE_RATE_PROVIDER", None)
@@ -189,7 +201,9 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIn("amortizationMonths", metrics["AppliedPresetFields"])
         self.assertIn("saleCommissionRate", metrics["AppliedPresetFields"])
         self.assertNotIn("annualInterestRate", metrics["AppliedPresetFields"])
-        self.assertEqual(metrics["ValidationWarnings"], [])
+        self.assertTrue(metrics["ValidationWarnings"])
+        self.assertTrue(metrics["Disclaimers"]["calculation"]["warnings"])
+        self.assertTrue(metrics["Disclaimers"]["useDecision"]["warnings"])
 
     def test_service_uses_liberty_quote_when_selected(self) -> None:
         os.environ["PRICE_ENGINE_TITLE_RATE_PROVIDER"] = "liberty"
@@ -257,6 +271,57 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(metrics["FinancedTransactionCosts"], 9445.0)
         self.assertEqual(metrics["ScenarioProfile"], "flip")
         self.assertEqual(metrics["AppliedPresetFields"], [])
+        self.assertEqual(metrics["Disclaimers"]["dataSources"]["warnings"], [])
+
+    def test_service_amplifies_disclaimer_warning_when_liberty_fallback_stub_is_used(self) -> None:
+        os.environ["PRICE_ENGINE_TITLE_RATE_PROVIDER"] = "liberty"
+
+        metrics = calculate_price_engine(
+            {
+                "strategy": "flip",
+                "purchasePrice": 120000,
+                "afterRepairValue": 220000,
+                "rehabCost": 30000,
+                "holdingCosts": 8000,
+                "closingCosts": 7000,
+                "cashAvailable": 60000,
+                "rentMonthly": 2500,
+                "operatingExpenseMonthly": 900,
+                "targetProfitMargin": 0.12,
+                "loanOriginationFee": 1500,
+                "underwritingFee": 995,
+                "processingFee": 695,
+                "appraisalFee": 550,
+                "creditReportFee": 85,
+                "pointsRate": 0.02,
+                "financeLenderFees": True,
+                "financeTitleFees": True,
+                "financePoints": True,
+                "propertyState": "MO",
+                "county": "Jackson",
+                "city": "Kansas City",
+                "postalCode": "64108",
+                "endorsements": ["CPL", "T-19"],
+                "transactionDate": "2026-03-18",
+                "annualInterestRate": 0.08,
+                "holdingMonths": 12,
+                "interestOnly": False,
+                "amortizationMonths": 360,
+                "exitSalePrice": 225000,
+                "saleCommissionRate": 0.06,
+                "sellerClosingCostRate": 0.02,
+                "dispositionFee": 1500,
+                "sellerConcessions": 2500,
+                "otherExitCosts": 1000,
+                "providerContext": {
+                    "requestedProvider": "liberty",
+                },
+            }
+        )
+
+        self.assertEqual(metrics["TotalTitleFees"], 0.0)
+        self.assertTrue(metrics["Disclaimers"]["dataSources"]["warnings"])
+        self.assertTrue(metrics["Disclaimers"]["useDecision"]["warnings"])
 
 
 if __name__ == "__main__":

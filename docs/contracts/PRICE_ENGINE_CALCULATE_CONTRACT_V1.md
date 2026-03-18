@@ -123,7 +123,21 @@ Response shape:
   "NetDispositionProceeds": 0.0,
   "ScenarioProfile": "flip",
   "AppliedPresetFields": [],
-  "ValidationWarnings": []
+  "ValidationWarnings": [],
+  "Disclaimers": {
+    "calculation": {
+      "message": "string",
+      "warnings": []
+    },
+    "dataSources": {
+      "message": "string",
+      "warnings": []
+    },
+    "useDecision": {
+      "message": "string",
+      "warnings": []
+    }
+  }
 }
 ```
 
@@ -149,7 +163,11 @@ Notes:
 - `NetDispositionProceeds` is `GrossSaleProceeds - TotalExitCosts - ExitLoanPayoff`.
 - `ScenarioProfile` echoes the canonical preset profile used for normalization.
 - `AppliedPresetFields` lists preset-backed fields that were filled because the caller omitted them.
-- `ValidationWarnings` is reserved for non-fatal normalization notices and is empty in this slice.
+- `ValidationWarnings` contains non-fatal normalization notices when scenario presets fill missing or approximated underwriting inputs and is otherwise empty.
+- `Disclaimers` is always present and contains deterministic `calculation`, `dataSources`, and `useDecision` disclaimer categories.
+- `Disclaimers.calculation.warnings` is amplified when preset-backed defaults were used to fill missing or approximated underwriting inputs.
+- `Disclaimers.dataSources.warnings` is amplified when Liberty fallback stub title data is used instead of an approved Liberty snapshot.
+- `Disclaimers.useDecision.warnings` repeats any amplified assumptions that materially affect downstream reliance on the response.
 - When no approved live title-rate provider is configured, or when Liberty quote retrieval is unavailable, the route uses the deterministic stub quote path and therefore returns zero title-fee totals instead of synthetic manual title fees.
 
 ## Error Contract
