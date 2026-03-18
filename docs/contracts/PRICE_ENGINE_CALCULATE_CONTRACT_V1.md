@@ -28,6 +28,16 @@ This document records the currently executable contract for the price engine cal
 - `rentMonthly`
 - `operatingExpenseMonthly`
 - `sellingCosts`
+- `loanOriginationFee`
+- `underwritingFee`
+- `processingFee`
+- `appraisalFee`
+- `creditReportFee`
+- `titlePremium`
+- `settlementFee`
+- `recordingFee`
+- `ownerPolicy`
+- `lenderPolicy`
 - `reserves`
 - `points`
 - `pointsRate`
@@ -58,7 +68,10 @@ Response shape:
   "CoC": 0.0,
   "CashToClose": 0.0,
   "Profit": 0.0,
-  "RiskScore": 0
+  "RiskScore": 0,
+  "TotalLenderFees": 0.0,
+  "TotalTitleFees": 0.0,
+  "TotalTransactionCosts": 0.0
 }
 ```
 
@@ -68,6 +81,9 @@ Notes:
 - `RiskScore` is returned as an integer.
 - `IRR` is annualized from monthly hold-period cash flows.
 - `CoC` uses annual net operating cash flow divided by upfront cash to close.
+- `TotalLenderFees` aggregates loan origination, underwriting, processing, appraisal, and credit report fees.
+- `TotalTitleFees` aggregates title premium, settlement, recording, owner policy, and lender policy fees.
+- `TotalTransactionCosts` aggregates `closingCosts + TotalLenderFees + TotalTitleFees`.
 
 ## Error Contract
 

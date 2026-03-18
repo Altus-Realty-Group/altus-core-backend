@@ -28,6 +28,16 @@ This document records the additive calculation-preview surface for the Price Eng
 - `rentMonthly`
 - `operatingExpenseMonthly`
 - `sellingCosts`
+- `loanOriginationFee`
+- `underwritingFee`
+- `processingFee`
+- `appraisalFee`
+- `creditReportFee`
+- `titlePremium`
+- `settlementFee`
+- `recordingFee`
+- `ownerPolicy`
+- `lenderPolicy`
 - `reserves`
 - `points`
 - `pointsRate`
@@ -52,9 +62,17 @@ Response shape:
   "CoC": 0.0,
   "CashToClose": 0.0,
   "Profit": 0.0,
-  "RiskScore": 0
+  "RiskScore": 0,
+  "TotalLenderFees": 0.0,
+  "TotalTitleFees": 0.0,
+  "TotalTransactionCosts": 0.0
 }
 ```
+
+Notes:
+- `TotalLenderFees` aggregates loan origination, underwriting, processing, appraisal, and credit report fees.
+- `TotalTitleFees` aggregates title premium, settlement, recording, owner policy, and lender policy fees.
+- `TotalTransactionCosts` aggregates `closingCosts + TotalLenderFees + TotalTitleFees`.
 
 ## Error Contract
 
