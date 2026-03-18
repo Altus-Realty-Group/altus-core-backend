@@ -104,6 +104,14 @@
         "hasSnapshotEvent": false,
         "isComplete": false
       },
+      "integrationProvider": "corelogic",
+      "integrationMode": "disabled",
+      "integrationState": "inactive",
+      "integrationStateLabel": "Integration Inactive",
+      "integrationReasonCodes": [
+        "integration_disabled",
+        "mode_disabled"
+      ],
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [

@@ -197,6 +197,11 @@ Response shape:
         "hasSnapshotEvent": false,
         "isComplete": false
       },
+      "integrationProvider": "corelogic",
+      "integrationMode": "disabled",
+      "integrationState": "inactive",
+      "integrationStateLabel": "Integration Inactive",
+      "integrationReasonCodes": [],
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [],
@@ -268,6 +273,11 @@ Notes:
 - `Provenance.titleQuote.sourceEventBundle.isComplete` is `true` only when both source and snapshot events are present.
 - `Provenance.titleQuote.sourceEventBundle.status` is `complete`, `partial`, or `missing`, derived only from source/snapshot event presence.
 - `Provenance.titleQuote.sourceEventBundle.statusLabel` is derived only from `status` using `Complete Event Bundle`, `Partial Event Bundle`, or `Missing Event Bundle`.
+- `Provenance.titleQuote.integrationProvider` surfaces the scaffolded integration provider key and is `corelogic` in this slice.
+- `Provenance.titleQuote.integrationMode` surfaces the normalized scaffold mode using `disabled`, `mock`, or `live`.
+- `Provenance.titleQuote.integrationState` is `inactive`, `mock_ready`, `live_blocked`, or `live_ready`, derived only from deterministic CoreLogic scaffold config state.
+- `Provenance.titleQuote.integrationStateLabel` is derived only from `integrationState` using `Integration Inactive`, `Mock Integration Ready`, `Live Integration Blocked`, or `Live Integration Ready`.
+- `Provenance.titleQuote.integrationReasonCodes` surfaces unique deterministic config-derived reason codes in fixed order from this set only: `integration_disabled`, `mode_disabled`, `mode_mock`, `live_calls_not_allowed`, `live_credentials_missing`, and `live_mode_enabled`.
 - `Provenance.titleQuote.exportReadiness` is `ready`, `conditional`, or `blocked`, derived only from deterministic provenance completeness and warning-state checks.
 - `Provenance.titleQuote.exportReadinessLabel` is derived only from `exportReadiness` using `Export Ready`, `Conditionally Export Ready`, or `Export Blocked`.
 - `Provenance.titleQuote.exportReadinessReasonCodes` surfaces unique deterministic reason codes in fixed order from this set only: `missing_export_artifact`, `missing_export_trace`, `missing_quote_reference`, `missing_snapshot_version`, `missing_source_trace`, `missing_snapshot_trace`, `missing_source_event`, `missing_snapshot_event`, `critical_warning_present`, and `warning_present`.

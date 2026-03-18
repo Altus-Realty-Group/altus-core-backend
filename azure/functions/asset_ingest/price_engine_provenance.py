@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from price_engine_corelogic_scaffold import resolve_corelogic_integration_scaffold
 from price_engine_title_quote_context import PriceEngineTitleQuoteContext
 
 
@@ -75,6 +76,9 @@ def build_price_engine_provenance(
         snapshot_event_type=snapshot_event_type,
         snapshot_event_ref=snapshot_event_ref,
     )
+    corelogic_integration = resolve_corelogic_integration_scaffold(
+        title_quote_context.provider_context
+    )
     export_trace_key = _build_export_trace_key(
         provider=provider,
         export_artifact_type=export_artifact_type,
@@ -135,6 +139,11 @@ def build_price_engine_provenance(
             "sourceEventRef": source_event_ref,
             "snapshotEventRef": snapshot_event_ref,
             "sourceEventBundle": source_event_bundle,
+            "integrationProvider": corelogic_integration.provider,
+            "integrationMode": corelogic_integration.mode,
+            "integrationState": corelogic_integration.state,
+            "integrationStateLabel": corelogic_integration.state_label,
+            "integrationReasonCodes": corelogic_integration.reason_codes,
             "exportReadiness": export_readiness,
             "exportReadinessLabel": _build_export_readiness_label(export_readiness),
             "exportReadinessReasonCodes": export_readiness_reason_codes,

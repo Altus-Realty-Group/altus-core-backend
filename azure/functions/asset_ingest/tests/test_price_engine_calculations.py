@@ -21,6 +21,7 @@ from price_engine_calculations import (  # noqa: E402
     calculate_total_title_fees,
     calculate_total_transaction_costs,
 )
+from price_engine_corelogic_scaffold import resolve_corelogic_integration_scaffold  # noqa: E402
 from price_engine_provenance import build_price_engine_provenance  # noqa: E402
 from price_engine_service import calculate_price_engine  # noqa: E402
 from price_engine_title_quote_context import PriceEngineTitleQuoteContext  # noqa: E402
@@ -29,12 +30,37 @@ from price_engine_title_quote_context import PriceEngineTitleQuoteContext  # noq
 class PriceEngineCalculationsTests(unittest.TestCase):
     def setUp(self) -> None:
         self._original_provider = os.environ.get("PRICE_ENGINE_TITLE_RATE_PROVIDER")
+        self._original_corelogic_enabled = os.environ.get("PRICE_ENGINE_CORELOGIC_ENABLED")
+        self._original_corelogic_mode = os.environ.get("PRICE_ENGINE_CORELOGIC_MODE")
+        self._original_corelogic_allow_live_calls = os.environ.get("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS")
+        self._original_corelogic_api_key = os.environ.get("PRICE_ENGINE_CORELOGIC_API_KEY")
+        self._original_corelogic_client_id = os.environ.get("PRICE_ENGINE_CORELOGIC_CLIENT_ID")
 
     def tearDown(self) -> None:
         if self._original_provider is None:
             os.environ.pop("PRICE_ENGINE_TITLE_RATE_PROVIDER", None)
         else:
             os.environ["PRICE_ENGINE_TITLE_RATE_PROVIDER"] = self._original_provider
+        if self._original_corelogic_enabled is None:
+            os.environ.pop("PRICE_ENGINE_CORELOGIC_ENABLED", None)
+        else:
+            os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = self._original_corelogic_enabled
+        if self._original_corelogic_mode is None:
+            os.environ.pop("PRICE_ENGINE_CORELOGIC_MODE", None)
+        else:
+            os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = self._original_corelogic_mode
+        if self._original_corelogic_allow_live_calls is None:
+            os.environ.pop("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS", None)
+        else:
+            os.environ["PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS"] = self._original_corelogic_allow_live_calls
+        if self._original_corelogic_api_key is None:
+            os.environ.pop("PRICE_ENGINE_CORELOGIC_API_KEY", None)
+        else:
+            os.environ["PRICE_ENGINE_CORELOGIC_API_KEY"] = self._original_corelogic_api_key
+        if self._original_corelogic_client_id is None:
+            os.environ.pop("PRICE_ENGINE_CORELOGIC_CLIENT_ID", None)
+        else:
+            os.environ["PRICE_ENGINE_CORELOGIC_CLIENT_ID"] = self._original_corelogic_client_id
 
     def test_core_formulas_produce_expected_outputs(self) -> None:
         inputs = build_deal_inputs(
@@ -234,6 +260,14 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                         "hasSnapshotEvent": False,
                         "isComplete": False,
                     },
+                    "integrationProvider": "corelogic",
+                    "integrationMode": "disabled",
+                    "integrationState": "inactive",
+                    "integrationStateLabel": "Integration Inactive",
+                    "integrationReasonCodes": [
+                        "integration_disabled",
+                        "mode_disabled",
+                    ],
                     "exportReadiness": "blocked",
                     "exportReadinessLabel": "Export Blocked",
                     "exportReadinessReasonCodes": [
@@ -444,6 +478,14 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "hasSnapshotEvent": True,
                     "isComplete": True,
                 },
+                "integrationProvider": "corelogic",
+                "integrationMode": "disabled",
+                "integrationState": "inactive",
+                "integrationStateLabel": "Integration Inactive",
+                "integrationReasonCodes": [
+                    "integration_disabled",
+                    "mode_disabled",
+                ],
                 "exportReadiness": "conditional",
                 "exportReadinessLabel": "Conditionally Export Ready",
                 "exportReadinessReasonCodes": [
@@ -579,6 +621,14 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "hasSnapshotEvent": False,
                     "isComplete": False,
                 },
+                "integrationProvider": "corelogic",
+                "integrationMode": "disabled",
+                "integrationState": "inactive",
+                "integrationStateLabel": "Integration Inactive",
+                "integrationReasonCodes": [
+                    "integration_disabled",
+                    "mode_disabled",
+                ],
                 "exportReadiness": "blocked",
                 "exportReadinessLabel": "Export Blocked",
                 "exportReadinessReasonCodes": [
@@ -634,6 +684,7 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         )
         self.assertEqual(provenance["titleQuote"]["exportReadiness"], "blocked")
         self.assertEqual(provenance["titleQuote"]["auditCompleteness"], "partial")
+        self.assertEqual(provenance["titleQuote"]["integrationState"], "inactive")
 
     def test_source_event_bundle_status_is_missing_when_no_events_exist(self) -> None:
         provenance = build_price_engine_provenance(
@@ -672,6 +723,10 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         )
         self.assertEqual(provenance["titleQuote"]["exportReadiness"], "blocked")
         self.assertEqual(provenance["titleQuote"]["auditCompleteness"], "partial")
+        self.assertEqual(
+            provenance["titleQuote"]["integrationReasonCodes"],
+            ["integration_disabled", "mode_disabled"],
+        )
 
     def test_warning_family_display_priority_honors_exact_priority_order(self) -> None:
         provenance = build_price_engine_provenance(
@@ -948,6 +1003,82 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "missing_source_event",
                 "missing_snapshot_event",
             ],
+        )
+
+    def test_corelogic_scaffold_defaults_to_inactive_and_never_executes_provider(self) -> None:
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_ENABLED", None)
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_MODE", None)
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS", None)
+
+        probe = {"called": 0}
+
+        def _live_executor() -> None:
+            probe["called"] += 1
+
+        scaffold = resolve_corelogic_integration_scaffold({}, live_executor=_live_executor)
+
+        self.assertEqual(scaffold.mode, "disabled")
+        self.assertEqual(scaffold.state, "inactive")
+        self.assertEqual(scaffold.reason_codes, ["integration_disabled", "mode_disabled"])
+        self.assertEqual(probe["called"], 0)
+
+    def test_corelogic_scaffold_mock_mode_is_ready_without_network_calls(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "mock"
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS", None)
+
+        probe = {"called": 0}
+
+        def _live_executor() -> None:
+            probe["called"] += 1
+
+        scaffold = resolve_corelogic_integration_scaffold({}, live_executor=_live_executor)
+
+        self.assertEqual(scaffold.mode, "mock")
+        self.assertEqual(scaffold.state, "mock_ready")
+        self.assertEqual(scaffold.reason_codes, ["mode_mock"])
+        self.assertIsNotNone(scaffold.mock_payload)
+        self.assertEqual(probe["called"], 0)
+
+    def test_corelogic_scaffold_live_mode_without_allow_live_calls_is_blocked(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "live"
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS", None)
+
+        scaffold = resolve_corelogic_integration_scaffold({})
+
+        self.assertEqual(scaffold.state, "live_blocked")
+        self.assertEqual(
+            scaffold.reason_codes,
+            ["live_calls_not_allowed", "live_mode_enabled"],
+        )
+
+    def test_corelogic_scaffold_live_mode_with_allow_live_calls_false_remains_blocked(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "live"
+        os.environ["PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS"] = "false"
+
+        scaffold = resolve_corelogic_integration_scaffold({})
+
+        self.assertEqual(scaffold.state, "live_blocked")
+        self.assertEqual(
+            scaffold.reason_codes,
+            ["live_calls_not_allowed", "live_mode_enabled"],
+        )
+
+    def test_corelogic_scaffold_live_mode_with_missing_credentials_remains_blocked(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "live"
+        os.environ["PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS"] = "true"
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_API_KEY", None)
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_CLIENT_ID", None)
+
+        scaffold = resolve_corelogic_integration_scaffold({})
+
+        self.assertEqual(scaffold.state, "live_blocked")
+        self.assertEqual(
+            scaffold.reason_codes,
+            ["live_credentials_missing", "live_mode_enabled"],
         )
 
 
