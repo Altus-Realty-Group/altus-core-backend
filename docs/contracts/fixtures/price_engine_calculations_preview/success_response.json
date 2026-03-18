@@ -136,6 +136,11 @@
       "integrationEstimatedRecordingFee": null,
       "integrationEstimatedSearchFee": null,
       "integrationEstimatedMiscFee": null,
+      "integrationFeeLineSum": null,
+      "integrationFeeDelta": null,
+      "integrationFeeReconciliationStatus": null,
+      "integrationFeeReconciliationLabel": null,
+      "integrationFeeReconciliationMatch": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [

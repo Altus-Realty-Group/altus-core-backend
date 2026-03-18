@@ -226,6 +226,11 @@ Response shape:
       "integrationEstimatedRecordingFee": null,
       "integrationEstimatedSearchFee": null,
       "integrationEstimatedMiscFee": null,
+      "integrationFeeLineSum": null,
+      "integrationFeeDelta": null,
+      "integrationFeeReconciliationStatus": null,
+      "integrationFeeReconciliationLabel": null,
+      "integrationFeeReconciliationMatch": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [],
@@ -313,6 +318,8 @@ Notes:
 - In `mock` mode, those bridged fields resolve deterministically to `mock_title_quote`, `mock_executed`, `CORELOGIC-MOCK-QUOTE-001`, `mock-v1`, `title_quote_baseline`, `3700.0`, and `USD`.
 - `Provenance.titleQuote.integrationEstimatedTitleFee`, `integrationEstimatedSettlementFee`, `integrationEstimatedRecordingFee`, `integrationEstimatedSearchFee`, and `integrationEstimatedMiscFee` are bridged only from the internal normalized CoreLogic envelope payload and remain `null` unless that envelope represents a `mock_executed` result.
 - In `mock` mode, those fee-line bridge fields resolve deterministically to `1850.0`, `950.0`, `150.0`, `450.0`, and `300.0`.
+- `Provenance.titleQuote.integrationFeeLineSum`, `integrationFeeDelta`, `integrationFeeReconciliationStatus`, `integrationFeeReconciliationLabel`, and `integrationFeeReconciliationMatch` are derived only from the existing route-visible CoreLogic fee-line bridge fields plus `integrationEstimatedTotalTitleCost`.
+- In `mock` mode, those reconciliation fields resolve deterministically to `3700.0`, `0.0`, `matched`, `Fee Reconciliation Matched`, and `true`.
 - `Provenance.titleQuote.exportReadiness` is `ready`, `conditional`, or `blocked`, derived only from deterministic provenance completeness and warning-state checks.
 - `Provenance.titleQuote.exportReadinessLabel` is derived only from `exportReadiness` using `Export Ready`, `Conditionally Export Ready`, or `Export Blocked`.
 - `Provenance.titleQuote.exportReadinessReasonCodes` surfaces unique deterministic reason codes in fixed order from this set only: `missing_export_artifact`, `missing_export_trace`, `missing_quote_reference`, `missing_snapshot_version`, `missing_source_trace`, `missing_snapshot_trace`, `missing_source_event`, `missing_snapshot_event`, `critical_warning_present`, and `warning_present`.

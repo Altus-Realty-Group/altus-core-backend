@@ -105,6 +105,73 @@ def build_price_engine_provenance(
         snapshot_version=snapshot_version,
         captured_at=_string_or_none(title_quote_context.provider_context.get("capturedAt")),
     )
+    integration_result_type = _integration_bridge_value(
+        corelogic_integration.normalized_result,
+        "resultType",
+    )
+    integration_execution_state = _integration_bridge_value(
+        corelogic_integration.normalized_result,
+        "executionState",
+    )
+    integration_quote_reference = _integration_bridge_value(
+        corelogic_integration.normalized_result,
+        "quoteReference",
+    )
+    integration_snapshot_version = _integration_bridge_value(
+        corelogic_integration.normalized_result,
+        "snapshotVersion",
+    )
+    integration_payload_profile = _integration_payload_bridge_value(
+        corelogic_integration.normalized_result,
+        "profile",
+    )
+    integration_estimated_total_title_cost = _integration_payload_bridge_value(
+        corelogic_integration.normalized_result,
+        "estimatedTotalTitleCost",
+    )
+    integration_currency = _integration_payload_bridge_value(
+        corelogic_integration.normalized_result,
+        "currency",
+    )
+    integration_estimated_title_fee = _integration_payload_bridge_value(
+        corelogic_integration.normalized_result,
+        "estimatedTitleFee",
+    )
+    integration_estimated_settlement_fee = _integration_payload_bridge_value(
+        corelogic_integration.normalized_result,
+        "estimatedSettlementFee",
+    )
+    integration_estimated_recording_fee = _integration_payload_bridge_value(
+        corelogic_integration.normalized_result,
+        "estimatedRecordingFee",
+    )
+    integration_estimated_search_fee = _integration_payload_bridge_value(
+        corelogic_integration.normalized_result,
+        "estimatedSearchFee",
+    )
+    integration_estimated_misc_fee = _integration_payload_bridge_value(
+        corelogic_integration.normalized_result,
+        "estimatedMiscFee",
+    )
+    integration_fee_line_sum = _build_integration_fee_line_sum(
+        integration_mode=corelogic_integration.mode,
+        integration_result_type=integration_result_type,
+        integration_execution_state=integration_execution_state,
+        integration_estimated_title_fee=integration_estimated_title_fee,
+        integration_estimated_settlement_fee=integration_estimated_settlement_fee,
+        integration_estimated_recording_fee=integration_estimated_recording_fee,
+        integration_estimated_search_fee=integration_estimated_search_fee,
+        integration_estimated_misc_fee=integration_estimated_misc_fee,
+        integration_estimated_total_title_cost=integration_estimated_total_title_cost,
+    )
+    integration_fee_delta = _build_integration_fee_delta(
+        integration_estimated_total_title_cost=integration_estimated_total_title_cost,
+        integration_fee_line_sum=integration_fee_line_sum,
+    )
+    integration_fee_reconciliation_status = _build_integration_fee_reconciliation_status(
+        integration_fee_line_sum=integration_fee_line_sum,
+        integration_fee_delta=integration_fee_delta,
+    )
 
     return {
         "titleQuote": {
@@ -156,53 +223,26 @@ def build_price_engine_provenance(
             "integrationEventRef": corelogic_integration.event_ref,
             "integrationMockProfile": corelogic_integration.mock_profile,
             "integrationMockProfileLabel": corelogic_integration.mock_profile_label,
-            "integrationResultType": _integration_bridge_value(
-                corelogic_integration.normalized_result,
-                "resultType",
+            "integrationResultType": integration_result_type,
+            "integrationExecutionState": integration_execution_state,
+            "integrationQuoteReference": integration_quote_reference,
+            "integrationSnapshotVersion": integration_snapshot_version,
+            "integrationPayloadProfile": integration_payload_profile,
+            "integrationEstimatedTotalTitleCost": integration_estimated_total_title_cost,
+            "integrationCurrency": integration_currency,
+            "integrationEstimatedTitleFee": integration_estimated_title_fee,
+            "integrationEstimatedSettlementFee": integration_estimated_settlement_fee,
+            "integrationEstimatedRecordingFee": integration_estimated_recording_fee,
+            "integrationEstimatedSearchFee": integration_estimated_search_fee,
+            "integrationEstimatedMiscFee": integration_estimated_misc_fee,
+            "integrationFeeLineSum": integration_fee_line_sum,
+            "integrationFeeDelta": integration_fee_delta,
+            "integrationFeeReconciliationStatus": integration_fee_reconciliation_status,
+            "integrationFeeReconciliationLabel": _build_integration_fee_reconciliation_label(
+                integration_fee_reconciliation_status,
             ),
-            "integrationExecutionState": _integration_bridge_value(
-                corelogic_integration.normalized_result,
-                "executionState",
-            ),
-            "integrationQuoteReference": _integration_bridge_value(
-                corelogic_integration.normalized_result,
-                "quoteReference",
-            ),
-            "integrationSnapshotVersion": _integration_bridge_value(
-                corelogic_integration.normalized_result,
-                "snapshotVersion",
-            ),
-            "integrationPayloadProfile": _integration_payload_bridge_value(
-                corelogic_integration.normalized_result,
-                "profile",
-            ),
-            "integrationEstimatedTotalTitleCost": _integration_payload_bridge_value(
-                corelogic_integration.normalized_result,
-                "estimatedTotalTitleCost",
-            ),
-            "integrationCurrency": _integration_payload_bridge_value(
-                corelogic_integration.normalized_result,
-                "currency",
-            ),
-            "integrationEstimatedTitleFee": _integration_payload_bridge_value(
-                corelogic_integration.normalized_result,
-                "estimatedTitleFee",
-            ),
-            "integrationEstimatedSettlementFee": _integration_payload_bridge_value(
-                corelogic_integration.normalized_result,
-                "estimatedSettlementFee",
-            ),
-            "integrationEstimatedRecordingFee": _integration_payload_bridge_value(
-                corelogic_integration.normalized_result,
-                "estimatedRecordingFee",
-            ),
-            "integrationEstimatedSearchFee": _integration_payload_bridge_value(
-                corelogic_integration.normalized_result,
-                "estimatedSearchFee",
-            ),
-            "integrationEstimatedMiscFee": _integration_payload_bridge_value(
-                corelogic_integration.normalized_result,
-                "estimatedMiscFee",
+            "integrationFeeReconciliationMatch": _build_integration_fee_reconciliation_match(
+                integration_fee_reconciliation_status,
             ),
             "exportReadiness": export_readiness,
             "exportReadinessLabel": _build_export_readiness_label(export_readiness),
@@ -651,3 +691,84 @@ def _integration_payload_bridge_value(
     if not isinstance(payload, dict):
         return None
     return payload.get(key)
+
+
+def _build_integration_fee_line_sum(
+    *,
+    integration_mode: str,
+    integration_result_type: Any,
+    integration_execution_state: Any,
+    integration_estimated_title_fee: Any,
+    integration_estimated_settlement_fee: Any,
+    integration_estimated_recording_fee: Any,
+    integration_estimated_search_fee: Any,
+    integration_estimated_misc_fee: Any,
+    integration_estimated_total_title_cost: Any,
+) -> float | None:
+    if integration_mode != "mock":
+        return None
+    if integration_result_type != "mock_title_quote":
+        return None
+    if integration_execution_state != "mock_executed":
+        return None
+    fee_values = [
+        integration_estimated_title_fee,
+        integration_estimated_settlement_fee,
+        integration_estimated_recording_fee,
+        integration_estimated_search_fee,
+        integration_estimated_misc_fee,
+        integration_estimated_total_title_cost,
+    ]
+    if any(not isinstance(value, (int, float)) for value in fee_values):
+        return None
+    return float(
+        integration_estimated_title_fee
+        + integration_estimated_settlement_fee
+        + integration_estimated_recording_fee
+        + integration_estimated_search_fee
+        + integration_estimated_misc_fee
+    )
+
+
+def _build_integration_fee_delta(
+    *,
+    integration_estimated_total_title_cost: Any,
+    integration_fee_line_sum: float | None,
+) -> float | None:
+    if integration_fee_line_sum is None:
+        return None
+    if not isinstance(integration_estimated_total_title_cost, (int, float)):
+        return None
+    return float(integration_estimated_total_title_cost - integration_fee_line_sum)
+
+
+def _build_integration_fee_reconciliation_status(
+    *,
+    integration_fee_line_sum: float | None,
+    integration_fee_delta: float | None,
+) -> str | None:
+    if integration_fee_line_sum is None or integration_fee_delta is None:
+        return None
+    if integration_fee_delta == 0.0:
+        return "matched"
+    return "mismatched"
+
+
+def _build_integration_fee_reconciliation_label(
+    integration_fee_reconciliation_status: str | None,
+) -> str | None:
+    if integration_fee_reconciliation_status == "matched":
+        return "Fee Reconciliation Matched"
+    if integration_fee_reconciliation_status == "mismatched":
+        return "Fee Reconciliation Mismatched"
+    return None
+
+
+def _build_integration_fee_reconciliation_match(
+    integration_fee_reconciliation_status: str | None,
+) -> bool | None:
+    if integration_fee_reconciliation_status == "matched":
+        return True
+    if integration_fee_reconciliation_status == "mismatched":
+        return False
+    return None

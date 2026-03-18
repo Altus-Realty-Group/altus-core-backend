@@ -1,8 +1,10 @@
 import pathlib
 import sys
 import unittest
+from dataclasses import replace
 from decimal import Decimal
 import os
+from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 FUNCTION_ROOT = ROOT / "azure" / "functions" / "asset_ingest"
@@ -307,6 +309,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "integrationEstimatedRecordingFee": None,
                     "integrationEstimatedSearchFee": None,
                     "integrationEstimatedMiscFee": None,
+                    "integrationFeeLineSum": None,
+                    "integrationFeeDelta": None,
+                    "integrationFeeReconciliationStatus": None,
+                    "integrationFeeReconciliationLabel": None,
+                    "integrationFeeReconciliationMatch": None,
                     "exportReadiness": "blocked",
                     "exportReadinessLabel": "Export Blocked",
                     "exportReadinessReasonCodes": [
@@ -549,6 +556,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "integrationEstimatedRecordingFee": None,
                 "integrationEstimatedSearchFee": None,
                 "integrationEstimatedMiscFee": None,
+                "integrationFeeLineSum": None,
+                "integrationFeeDelta": None,
+                "integrationFeeReconciliationStatus": None,
+                "integrationFeeReconciliationLabel": None,
+                "integrationFeeReconciliationMatch": None,
                 "exportReadiness": "conditional",
                 "exportReadinessLabel": "Conditionally Export Ready",
                 "exportReadinessReasonCodes": [
@@ -716,6 +728,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "integrationEstimatedRecordingFee": None,
                 "integrationEstimatedSearchFee": None,
                 "integrationEstimatedMiscFee": None,
+                "integrationFeeLineSum": None,
+                "integrationFeeDelta": None,
+                "integrationFeeReconciliationStatus": None,
+                "integrationFeeReconciliationLabel": None,
+                "integrationFeeReconciliationMatch": None,
                 "exportReadiness": "blocked",
                 "exportReadinessLabel": "Export Blocked",
                 "exportReadinessReasonCodes": [
@@ -793,6 +810,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedRecordingFee"])
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedSearchFee"])
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedMiscFee"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeLineSum"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeDelta"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationStatus"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationMatch"])
 
     def test_source_event_bundle_status_is_missing_when_no_events_exist(self) -> None:
         provenance = build_price_engine_provenance(
@@ -855,6 +877,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedRecordingFee"])
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedSearchFee"])
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedMiscFee"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeLineSum"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeDelta"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationStatus"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationMatch"])
 
     def test_warning_family_display_priority_honors_exact_priority_order(self) -> None:
         provenance = build_price_engine_provenance(
@@ -1390,6 +1417,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(provenance["titleQuote"]["integrationEstimatedRecordingFee"], 150.0)
         self.assertEqual(provenance["titleQuote"]["integrationEstimatedSearchFee"], 450.0)
         self.assertEqual(provenance["titleQuote"]["integrationEstimatedMiscFee"], 300.0)
+        self.assertEqual(provenance["titleQuote"]["integrationFeeLineSum"], 3700.0)
+        self.assertEqual(provenance["titleQuote"]["integrationFeeDelta"], 0.0)
+        self.assertEqual(provenance["titleQuote"]["integrationFeeReconciliationStatus"], "matched")
+        self.assertEqual(provenance["titleQuote"]["integrationFeeReconciliationLabel"], "Fee Reconciliation Matched")
+        self.assertTrue(provenance["titleQuote"]["integrationFeeReconciliationMatch"])
 
     def test_corelogic_scaffold_live_mode_with_partial_credentials_reports_partial_state(self) -> None:
         os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
@@ -1435,6 +1467,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedRecordingFee"])
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedSearchFee"])
         self.assertIsNone(provenance["titleQuote"]["integrationEstimatedMiscFee"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeLineSum"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeDelta"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationStatus"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationMatch"])
 
     def test_corelogic_scaffold_live_mode_with_all_credentials_present_reports_ready_state(self) -> None:
         os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
@@ -1531,6 +1568,48 @@ class PriceEngineCalculationsTests(unittest.TestCase):
             provenance["titleQuote"]["integrationEstimatedMiscFee"],
             scaffold.normalized_result["payload"]["estimatedMiscFee"],
         )
+        self.assertEqual(provenance["titleQuote"]["integrationFeeLineSum"], 3700.0)
+        self.assertEqual(provenance["titleQuote"]["integrationFeeDelta"], 0.0)
+        self.assertEqual(provenance["titleQuote"]["integrationFeeReconciliationStatus"], "matched")
+
+    def test_reconciliation_fields_return_null_when_one_required_fee_line_is_missing(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "mock"
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS", None)
+
+        scaffold = resolve_corelogic_integration_scaffold({})
+        incomplete_payload = dict(scaffold.normalized_result["payload"])
+        incomplete_payload.pop("estimatedMiscFee", None)
+        incomplete_envelope = dict(scaffold.normalized_result)
+        incomplete_envelope["payload"] = incomplete_payload
+        incomplete_scaffold = replace(scaffold, normalized_result=incomplete_envelope)
+
+        with patch(
+            "price_engine_provenance.resolve_corelogic_integration_scaffold",
+            return_value=incomplete_scaffold,
+        ):
+            provenance = build_price_engine_provenance(
+                title_quote_context=PriceEngineTitleQuoteContext(
+                    fee_inputs={},
+                    provider_key="stub",
+                    status="stub",
+                    quote_reference=None,
+                    expires_at=None,
+                    warnings=[],
+                    assumptions=[],
+                    provider_context={},
+                ),
+                scenario_profile="flip",
+                applied_preset_fields=[],
+                validation_warnings=[],
+            )
+
+        self.assertIsNone(provenance["titleQuote"]["integrationEstimatedMiscFee"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeLineSum"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeDelta"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationStatus"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationFeeReconciliationMatch"])
 
 
 if __name__ == "__main__":
