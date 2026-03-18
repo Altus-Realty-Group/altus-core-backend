@@ -124,6 +124,13 @@
       "integrationEventRef": null,
       "integrationMockProfile": null,
       "integrationMockProfileLabel": null,
+      "integrationResultType": null,
+      "integrationExecutionState": null,
+      "integrationQuoteReference": null,
+      "integrationSnapshotVersion": null,
+      "integrationPayloadProfile": null,
+      "integrationEstimatedTotalTitleCost": null,
+      "integrationCurrency": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [

@@ -295,6 +295,13 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "integrationEventRef": None,
                     "integrationMockProfile": None,
                     "integrationMockProfileLabel": None,
+                    "integrationResultType": None,
+                    "integrationExecutionState": None,
+                    "integrationQuoteReference": None,
+                    "integrationSnapshotVersion": None,
+                    "integrationPayloadProfile": None,
+                    "integrationEstimatedTotalTitleCost": None,
+                    "integrationCurrency": None,
                     "exportReadiness": "blocked",
                     "exportReadinessLabel": "Export Blocked",
                     "exportReadinessReasonCodes": [
@@ -525,6 +532,13 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "integrationEventRef": None,
                 "integrationMockProfile": None,
                 "integrationMockProfileLabel": None,
+                "integrationResultType": None,
+                "integrationExecutionState": None,
+                "integrationQuoteReference": None,
+                "integrationSnapshotVersion": None,
+                "integrationPayloadProfile": None,
+                "integrationEstimatedTotalTitleCost": None,
+                "integrationCurrency": None,
                 "exportReadiness": "conditional",
                 "exportReadinessLabel": "Conditionally Export Ready",
                 "exportReadinessReasonCodes": [
@@ -680,6 +694,13 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "integrationEventRef": None,
                 "integrationMockProfile": None,
                 "integrationMockProfileLabel": None,
+                "integrationResultType": None,
+                "integrationExecutionState": None,
+                "integrationQuoteReference": None,
+                "integrationSnapshotVersion": None,
+                "integrationPayloadProfile": None,
+                "integrationEstimatedTotalTitleCost": None,
+                "integrationCurrency": None,
                 "exportReadiness": "blocked",
                 "exportReadinessLabel": "Export Blocked",
                 "exportReadinessReasonCodes": [
@@ -745,6 +766,13 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIsNone(provenance["titleQuote"]["integrationEventRef"])
         self.assertIsNone(provenance["titleQuote"]["integrationMockProfile"])
         self.assertIsNone(provenance["titleQuote"]["integrationMockProfileLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationResultType"])
+        self.assertIsNone(provenance["titleQuote"]["integrationExecutionState"])
+        self.assertIsNone(provenance["titleQuote"]["integrationQuoteReference"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSnapshotVersion"])
+        self.assertIsNone(provenance["titleQuote"]["integrationPayloadProfile"])
+        self.assertIsNone(provenance["titleQuote"]["integrationEstimatedTotalTitleCost"])
+        self.assertIsNone(provenance["titleQuote"]["integrationCurrency"])
 
     def test_source_event_bundle_status_is_missing_when_no_events_exist(self) -> None:
         provenance = build_price_engine_provenance(
@@ -795,6 +823,13 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIsNone(provenance["titleQuote"]["integrationEventRef"])
         self.assertIsNone(provenance["titleQuote"]["integrationMockProfile"])
         self.assertIsNone(provenance["titleQuote"]["integrationMockProfileLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationResultType"])
+        self.assertIsNone(provenance["titleQuote"]["integrationExecutionState"])
+        self.assertIsNone(provenance["titleQuote"]["integrationQuoteReference"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSnapshotVersion"])
+        self.assertIsNone(provenance["titleQuote"]["integrationPayloadProfile"])
+        self.assertIsNone(provenance["titleQuote"]["integrationEstimatedTotalTitleCost"])
+        self.assertIsNone(provenance["titleQuote"]["integrationCurrency"])
 
     def test_warning_family_display_priority_honors_exact_priority_order(self) -> None:
         provenance = build_price_engine_provenance(
@@ -1318,6 +1353,13 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         )
         self.assertEqual(provenance["titleQuote"]["integrationMockProfile"], "title_quote_baseline")
         self.assertEqual(provenance["titleQuote"]["integrationMockProfileLabel"], "Title Quote Baseline Mock")
+        self.assertEqual(provenance["titleQuote"]["integrationResultType"], "mock_title_quote")
+        self.assertEqual(provenance["titleQuote"]["integrationExecutionState"], "mock_executed")
+        self.assertEqual(provenance["titleQuote"]["integrationQuoteReference"], "CORELOGIC-MOCK-QUOTE-001")
+        self.assertEqual(provenance["titleQuote"]["integrationSnapshotVersion"], "mock-v1")
+        self.assertEqual(provenance["titleQuote"]["integrationPayloadProfile"], "title_quote_baseline")
+        self.assertEqual(provenance["titleQuote"]["integrationEstimatedTotalTitleCost"], 3700.0)
+        self.assertEqual(provenance["titleQuote"]["integrationCurrency"], "USD")
 
     def test_corelogic_scaffold_live_mode_with_partial_credentials_reports_partial_state(self) -> None:
         os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
@@ -1333,6 +1375,31 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(scaffold.credential_state_label, "Credentials Partial")
         self.assertFalse(scaffold.live_ready)
         self.assertEqual(scaffold.guard_summary, "blocked_missing_credentials")
+        self.assertEqual(scaffold.normalized_result["executionState"], "live_blocked")
+        self.assertEqual(scaffold.normalized_result["resultType"], "blocked")
+
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="stub",
+                status="stub",
+                quote_reference=None,
+                expires_at=None,
+                warnings=[],
+                assumptions=[],
+                provider_context={},
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+        self.assertIsNone(provenance["titleQuote"]["integrationResultType"])
+        self.assertIsNone(provenance["titleQuote"]["integrationExecutionState"])
+        self.assertIsNone(provenance["titleQuote"]["integrationQuoteReference"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSnapshotVersion"])
+        self.assertIsNone(provenance["titleQuote"]["integrationPayloadProfile"])
+        self.assertIsNone(provenance["titleQuote"]["integrationEstimatedTotalTitleCost"])
+        self.assertIsNone(provenance["titleQuote"]["integrationCurrency"])
 
     def test_corelogic_scaffold_live_mode_with_all_credentials_present_reports_ready_state(self) -> None:
         os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
@@ -1358,6 +1425,57 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(scaffold.normalized_result["resultType"], "none")
         self.assertIsNone(scaffold.normalized_result["payload"])
         self.assertEqual(probe["called"], 0)
+
+    def test_provenance_bridge_fields_match_normalized_envelope_values_exactly(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "mock"
+        os.environ.pop("PRICE_ENGINE_CORELOGIC_ALLOW_LIVE_CALLS", None)
+
+        scaffold = resolve_corelogic_integration_scaffold({})
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="stub",
+                status="stub",
+                quote_reference=None,
+                expires_at=None,
+                warnings=[],
+                assumptions=[],
+                provider_context={},
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(
+            provenance["titleQuote"]["integrationResultType"],
+            scaffold.normalized_result["resultType"],
+        )
+        self.assertEqual(
+            provenance["titleQuote"]["integrationExecutionState"],
+            scaffold.normalized_result["executionState"],
+        )
+        self.assertEqual(
+            provenance["titleQuote"]["integrationQuoteReference"],
+            scaffold.normalized_result["quoteReference"],
+        )
+        self.assertEqual(
+            provenance["titleQuote"]["integrationSnapshotVersion"],
+            scaffold.normalized_result["snapshotVersion"],
+        )
+        self.assertEqual(
+            provenance["titleQuote"]["integrationPayloadProfile"],
+            scaffold.normalized_result["payload"]["profile"],
+        )
+        self.assertEqual(
+            provenance["titleQuote"]["integrationEstimatedTotalTitleCost"],
+            scaffold.normalized_result["payload"]["estimatedTotalTitleCost"],
+        )
+        self.assertEqual(
+            provenance["titleQuote"]["integrationCurrency"],
+            scaffold.normalized_result["payload"]["currency"],
+        )
 
 
 if __name__ == "__main__":

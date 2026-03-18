@@ -156,6 +156,34 @@ def build_price_engine_provenance(
             "integrationEventRef": corelogic_integration.event_ref,
             "integrationMockProfile": corelogic_integration.mock_profile,
             "integrationMockProfileLabel": corelogic_integration.mock_profile_label,
+            "integrationResultType": _integration_bridge_value(
+                corelogic_integration.normalized_result,
+                "resultType",
+            ),
+            "integrationExecutionState": _integration_bridge_value(
+                corelogic_integration.normalized_result,
+                "executionState",
+            ),
+            "integrationQuoteReference": _integration_bridge_value(
+                corelogic_integration.normalized_result,
+                "quoteReference",
+            ),
+            "integrationSnapshotVersion": _integration_bridge_value(
+                corelogic_integration.normalized_result,
+                "snapshotVersion",
+            ),
+            "integrationPayloadProfile": _integration_payload_bridge_value(
+                corelogic_integration.normalized_result,
+                "profile",
+            ),
+            "integrationEstimatedTotalTitleCost": _integration_payload_bridge_value(
+                corelogic_integration.normalized_result,
+                "estimatedTotalTitleCost",
+            ),
+            "integrationCurrency": _integration_payload_bridge_value(
+                corelogic_integration.normalized_result,
+                "currency",
+            ),
             "exportReadiness": export_readiness,
             "exportReadinessLabel": _build_export_readiness_label(export_readiness),
             "exportReadinessReasonCodes": export_readiness_reason_codes,
@@ -582,3 +610,24 @@ def _string_or_none(value: Any) -> str | None:
 
 def _is_present(value: str | None) -> bool:
     return bool(value and value.strip())
+
+
+def _integration_bridge_value(
+    normalized_result: dict[str, Any],
+    key: str,
+) -> Any:
+    if normalized_result.get("executionState") != "mock_executed":
+        return None
+    return normalized_result.get(key)
+
+
+def _integration_payload_bridge_value(
+    normalized_result: dict[str, Any],
+    key: str,
+) -> Any:
+    if normalized_result.get("executionState") != "mock_executed":
+        return None
+    payload = normalized_result.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    return payload.get(key)

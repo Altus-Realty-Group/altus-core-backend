@@ -214,6 +214,13 @@ Response shape:
       "integrationEventRef": null,
       "integrationMockProfile": null,
       "integrationMockProfileLabel": null,
+      "integrationResultType": null,
+      "integrationExecutionState": null,
+      "integrationQuoteReference": null,
+      "integrationSnapshotVersion": null,
+      "integrationPayloadProfile": null,
+      "integrationEstimatedTotalTitleCost": null,
+      "integrationCurrency": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [],
@@ -297,6 +304,8 @@ Notes:
 - `Provenance.titleQuote.integrationGuardSummary` is `disabled`, `mock`, `blocked_missing_credentials`, `blocked_live_calls_not_allowed`, or `ready_for_live`, derived only from deterministic CoreLogic config and credential guard evaluation.
 - `Provenance.titleQuote.integrationArtifactType`, `integrationArtifactId`, `integrationTraceKey`, `integrationEventType`, `integrationEventRef`, `integrationMockProfile`, and `integrationMockProfileLabel` are additive CoreLogic scaffold fields and remain `null` unless the scaffold resolves to `mock` mode.
 - In `mock` mode, those fields are populated deterministically with `corelogic_mock_payload`, `corelogic-mock-title-quote-v1`, `corelogic:mock:corelogic-mock-title-quote-v1`, `corelogic_mock_title_quote`, `integration-event:corelogic:mock:corelogic-mock-title-quote-v1`, `title_quote_baseline`, and `Title Quote Baseline Mock`.
+- `Provenance.titleQuote.integrationResultType`, `integrationExecutionState`, `integrationQuoteReference`, `integrationSnapshotVersion`, `integrationPayloadProfile`, `integrationEstimatedTotalTitleCost`, and `integrationCurrency` are bridged only from the internal normalized CoreLogic envelope and remain `null` unless that envelope represents a `mock_executed` result.
+- In `mock` mode, those bridged fields resolve deterministically to `mock_title_quote`, `mock_executed`, `CORELOGIC-MOCK-QUOTE-001`, `mock-v1`, `title_quote_baseline`, `3700.0`, and `USD`.
 - `Provenance.titleQuote.exportReadiness` is `ready`, `conditional`, or `blocked`, derived only from deterministic provenance completeness and warning-state checks.
 - `Provenance.titleQuote.exportReadinessLabel` is derived only from `exportReadiness` using `Export Ready`, `Conditionally Export Ready`, or `Export Blocked`.
 - `Provenance.titleQuote.exportReadinessReasonCodes` surfaces unique deterministic reason codes in fixed order from this set only: `missing_export_artifact`, `missing_export_trace`, `missing_quote_reference`, `missing_snapshot_version`, `missing_source_trace`, `missing_snapshot_trace`, `missing_source_event`, `missing_snapshot_event`, `critical_warning_present`, and `warning_present`.
