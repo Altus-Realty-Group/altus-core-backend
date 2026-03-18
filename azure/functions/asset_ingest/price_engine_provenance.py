@@ -35,6 +35,8 @@ def build_price_engine_provenance(
         for code in source_warning_codes
     ]
     warning_families = _build_warning_families(source_warning_codes)
+    warning_family_summary = list(warning_families)
+    warning_family_summary_label = _build_warning_family_summary_label(warning_family_summary)
     warning_summary = _build_warning_summary(source_warning_severities)
     warning_counts = _build_warning_counts(source_warning_severities)
     warning_family_counts = _build_warning_family_counts(warning_families)
@@ -52,6 +54,10 @@ def build_price_engine_provenance(
         snapshot_version=snapshot_version,
         quote_reference=quote_reference,
     )
+    source_event_type = _build_source_event_type(status=status)
+    snapshot_event_type = _build_snapshot_event_type(snapshot_trace_key=snapshot_trace_key)
+    source_event_ref = _build_event_ref("source-event", source_trace_key)
+    snapshot_event_ref = _build_event_ref("snapshot-event", snapshot_trace_key)
 
     return {
         "titleQuote": {
@@ -67,6 +73,8 @@ def build_price_engine_provenance(
             "sourceWarningCodes": source_warning_codes,
             "sourceWarningSeverities": source_warning_severities,
             "warningFamilies": warning_families,
+            "warningFamilySummary": warning_family_summary,
+            "warningFamilySummaryLabel": warning_family_summary_label,
             "warningSummary": warning_summary,
             "warningCounts": warning_counts,
             "warningFamilyCounts": warning_family_counts,
@@ -80,10 +88,16 @@ def build_price_engine_provenance(
             ),
             "sourceTraceKey": source_trace_key,
             "snapshotTraceKey": snapshot_trace_key,
-            "sourceEventType": _build_source_event_type(status=status),
-            "snapshotEventType": _build_snapshot_event_type(snapshot_trace_key=snapshot_trace_key),
-            "sourceEventRef": _build_event_ref("source-event", source_trace_key),
-            "snapshotEventRef": _build_event_ref("snapshot-event", snapshot_trace_key),
+            "sourceEventType": source_event_type,
+            "snapshotEventType": snapshot_event_type,
+            "sourceEventRef": source_event_ref,
+            "snapshotEventRef": snapshot_event_ref,
+            "sourceEventBundle": {
+                "sourceEventType": source_event_type,
+                "sourceEventRef": source_event_ref,
+                "snapshotEventType": snapshot_event_type,
+                "snapshotEventRef": snapshot_event_ref,
+            },
         },
         "scenario": {
             "profile": scenario_profile,
@@ -204,6 +218,12 @@ def _build_warning_summary(severities: list[str]) -> dict[str, Any]:
         "hasWarning": "warning" in severities,
         "hasInfo": "info" in severities,
     }
+
+
+def _build_warning_family_summary_label(families: list[str]) -> str | None:
+    if not families:
+        return None
+    return ", ".join(families)
 
 
 def _build_warning_counts(severities: list[str]) -> dict[str, int]:

@@ -57,6 +57,10 @@
       "warningFamilies": [
         "provider"
       ],
+      "warningFamilySummary": [
+        "provider"
+      ],
+      "warningFamilySummaryLabel": "provider",
       "warningSummary": {
         "highestSeverity": "info",
         "hasCritical": false,
@@ -84,7 +88,13 @@
       "sourceEventType": "title_quote_stub",
       "snapshotEventType": null,
       "sourceEventRef": "source-event:stub:stub:stub",
-      "snapshotEventRef": null
+      "snapshotEventRef": null,
+      "sourceEventBundle": {
+        "sourceEventType": "title_quote_stub",
+        "sourceEventRef": "source-event:stub:stub:stub",
+        "snapshotEventType": null,
+        "snapshotEventRef": null
+      }
     },
     "scenario": {
       "profile": "flip",
