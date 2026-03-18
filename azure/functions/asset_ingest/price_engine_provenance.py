@@ -75,6 +75,32 @@ def build_price_engine_provenance(
         snapshot_event_type=snapshot_event_type,
         snapshot_event_ref=snapshot_event_ref,
     )
+    export_trace_key = _build_export_trace_key(
+        provider=provider,
+        export_artifact_type=export_artifact_type,
+        export_artifact_id=export_artifact_id,
+        quote_reference=quote_reference,
+    )
+    export_readiness_reason_codes = _build_export_readiness_reason_codes(
+        export_artifact_id=export_artifact_id,
+        export_trace_key=export_trace_key,
+        quote_reference=quote_reference,
+        snapshot_version=snapshot_version,
+        source_trace_key=source_trace_key,
+        snapshot_trace_key=snapshot_trace_key,
+        source_event_bundle=source_event_bundle,
+        warning_summary=warning_summary,
+        warning_counts=warning_counts,
+    )
+    export_readiness = _build_export_readiness(export_readiness_reason_codes)
+    audit_completeness = _build_audit_completeness(
+        source_trace_key=source_trace_key,
+        snapshot_trace_key=snapshot_trace_key,
+        source_event_bundle=source_event_bundle,
+        quote_reference=quote_reference,
+        snapshot_version=snapshot_version,
+        captured_at=_string_or_none(title_quote_context.provider_context.get("capturedAt")),
+    )
 
     return {
         "titleQuote": {
@@ -101,12 +127,7 @@ def build_price_engine_provenance(
             "warningFamilyCounts": warning_family_counts,
             "exportArtifactId": export_artifact_id,
             "exportArtifactType": export_artifact_type,
-            "exportTraceKey": _build_export_trace_key(
-                provider=provider,
-                export_artifact_type=export_artifact_type,
-                export_artifact_id=export_artifact_id,
-                quote_reference=quote_reference,
-            ),
+            "exportTraceKey": export_trace_key,
             "sourceTraceKey": source_trace_key,
             "snapshotTraceKey": snapshot_trace_key,
             "sourceEventType": source_event_type,
@@ -114,6 +135,11 @@ def build_price_engine_provenance(
             "sourceEventRef": source_event_ref,
             "snapshotEventRef": snapshot_event_ref,
             "sourceEventBundle": source_event_bundle,
+            "exportReadiness": export_readiness,
+            "exportReadinessLabel": _build_export_readiness_label(export_readiness),
+            "exportReadinessReasonCodes": export_readiness_reason_codes,
+            "auditCompleteness": audit_completeness,
+            "auditCompletenessLabel": _build_audit_completeness_label(audit_completeness),
         },
         "scenario": {
             "profile": scenario_profile,
@@ -377,6 +403,99 @@ def _build_event_bundle_status_label(status: str) -> str:
     return "Missing Event Bundle"
 
 
+def _build_export_readiness_reason_codes(
+    *,
+    export_artifact_id: str | None,
+    export_trace_key: str | None,
+    quote_reference: str | None,
+    snapshot_version: str | None,
+    source_trace_key: str | None,
+    snapshot_trace_key: str | None,
+    source_event_bundle: dict[str, Any],
+    warning_summary: dict[str, Any],
+    warning_counts: dict[str, int],
+) -> list[str]:
+    ordered_reasons: list[tuple[str, bool]] = [
+        ("missing_export_artifact", not _is_present(export_artifact_id)),
+        ("missing_export_trace", not _is_present(export_trace_key)),
+        ("missing_quote_reference", not _is_present(quote_reference)),
+        ("missing_snapshot_version", not _is_present(snapshot_version)),
+        ("missing_source_trace", not _is_present(source_trace_key)),
+        ("missing_snapshot_trace", not _is_present(snapshot_trace_key)),
+        ("missing_source_event", not bool(source_event_bundle.get("hasSourceEvent"))),
+        ("missing_snapshot_event", not bool(source_event_bundle.get("hasSnapshotEvent"))),
+        ("critical_warning_present", bool(warning_summary.get("hasCritical"))),
+        (
+            "warning_present",
+            int(warning_counts.get("total", 0)) > 0 and not bool(warning_summary.get("hasCritical")),
+        ),
+    ]
+    return [code for code, include in ordered_reasons if include]
+
+
+def _build_export_readiness(reason_codes: list[str]) -> str:
+    blocked_codes = {
+        "critical_warning_present",
+        "missing_export_artifact",
+        "missing_export_trace",
+        "missing_quote_reference",
+        "missing_snapshot_version",
+    }
+    conditional_codes = {
+        "missing_source_trace",
+        "missing_snapshot_trace",
+        "missing_source_event",
+        "missing_snapshot_event",
+        "warning_present",
+    }
+
+    if any(code in blocked_codes for code in reason_codes):
+        return "blocked"
+    if any(code in conditional_codes for code in reason_codes):
+        return "conditional"
+    return "ready"
+
+
+def _build_export_readiness_label(readiness: str) -> str:
+    if readiness == "ready":
+        return "Export Ready"
+    if readiness == "conditional":
+        return "Conditionally Export Ready"
+    return "Export Blocked"
+
+
+def _build_audit_completeness(
+    *,
+    source_trace_key: str | None,
+    snapshot_trace_key: str | None,
+    source_event_bundle: dict[str, Any],
+    quote_reference: str | None,
+    snapshot_version: str | None,
+    captured_at: str | None,
+) -> str:
+    signals = [
+        _is_present(source_trace_key),
+        _is_present(snapshot_trace_key),
+        bool(source_event_bundle.get("isComplete")),
+        _is_present(quote_reference),
+        _is_present(snapshot_version),
+        _is_present(captured_at),
+    ]
+    if all(signals):
+        return "complete"
+    if any(signals):
+        return "partial"
+    return "minimal"
+
+
+def _build_audit_completeness_label(completeness: str) -> str:
+    if completeness == "complete":
+        return "Audit Complete"
+    if completeness == "partial":
+        return "Audit Partial"
+    return "Audit Minimal"
+
+
 def _build_source_event_type(*, status: str) -> str | None:
     if status == "quoted":
         return "title_quote_source"
@@ -438,3 +557,7 @@ def _string_or_none(value: Any) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned or None
+
+
+def _is_present(value: str | None) -> bool:
+    return bool(value and value.strip())

@@ -234,6 +234,19 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                         "hasSnapshotEvent": False,
                         "isComplete": False,
                     },
+                    "exportReadiness": "blocked",
+                    "exportReadinessLabel": "Export Blocked",
+                    "exportReadinessReasonCodes": [
+                        "missing_export_artifact",
+                        "missing_export_trace",
+                        "missing_quote_reference",
+                        "missing_snapshot_version",
+                        "missing_snapshot_trace",
+                        "missing_snapshot_event",
+                        "warning_present",
+                    ],
+                    "auditCompleteness": "partial",
+                    "auditCompletenessLabel": "Audit Partial",
                 },
                 "scenario": {
                     "profile": "flip",
@@ -431,6 +444,13 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "hasSnapshotEvent": True,
                     "isComplete": True,
                 },
+                "exportReadiness": "conditional",
+                "exportReadinessLabel": "Conditionally Export Ready",
+                "exportReadinessReasonCodes": [
+                    "warning_present",
+                ],
+                "auditCompleteness": "complete",
+                "auditCompletenessLabel": "Audit Complete",
             },
         )
         self.assertEqual(metrics["Provenance"]["trace"]["generatedAt"], None)
@@ -559,6 +579,19 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "hasSnapshotEvent": False,
                     "isComplete": False,
                 },
+                "exportReadiness": "blocked",
+                "exportReadinessLabel": "Export Blocked",
+                "exportReadinessReasonCodes": [
+                    "missing_export_artifact",
+                    "missing_export_trace",
+                    "missing_quote_reference",
+                    "missing_snapshot_version",
+                    "missing_snapshot_trace",
+                    "missing_snapshot_event",
+                    "critical_warning_present",
+                ],
+                "auditCompleteness": "partial",
+                "auditCompletenessLabel": "Audit Partial",
             },
         )
 
@@ -599,6 +632,8 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "isComplete": False,
             },
         )
+        self.assertEqual(provenance["titleQuote"]["exportReadiness"], "blocked")
+        self.assertEqual(provenance["titleQuote"]["auditCompleteness"], "partial")
 
     def test_source_event_bundle_status_is_missing_when_no_events_exist(self) -> None:
         provenance = build_price_engine_provenance(
@@ -635,6 +670,8 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "isComplete": False,
             },
         )
+        self.assertEqual(provenance["titleQuote"]["exportReadiness"], "blocked")
+        self.assertEqual(provenance["titleQuote"]["auditCompleteness"], "partial")
 
     def test_warning_family_display_priority_honors_exact_priority_order(self) -> None:
         provenance = build_price_engine_provenance(
@@ -695,6 +732,223 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayLabel"], "Snapshot Warning")
         self.assertEqual(provenance["titleQuote"]["warningFamilyDisplaySeverity"], "critical")
         self.assertEqual(provenance["titleQuote"]["warningFamilyDisplayCount"], 1)
+
+    def test_export_readiness_is_ready_when_provenance_is_fully_populated_without_warnings(self) -> None:
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="liberty",
+                status="quoted",
+                quote_reference="LIA-QUOTE-READY",
+                expires_at=None,
+                warnings=[],
+                assumptions=[],
+                provider_context={
+                    "source": "provider_quote",
+                    "snapshotVersion": "v2",
+                    "quotedAt": "2026-03-18T15:45:00Z",
+                    "capturedAt": "2026-03-18T15:46:00Z",
+                    "exportArtifactId": "artifact-123",
+                    "exportArtifactType": "title_quote_snapshot",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(provenance["titleQuote"]["exportReadiness"], "ready")
+        self.assertEqual(provenance["titleQuote"]["exportReadinessLabel"], "Export Ready")
+        self.assertEqual(provenance["titleQuote"]["exportReadinessReasonCodes"], [])
+        self.assertEqual(provenance["titleQuote"]["auditCompleteness"], "complete")
+        self.assertEqual(provenance["titleQuote"]["auditCompletenessLabel"], "Audit Complete")
+
+    def test_export_readiness_is_blocked_when_export_artifact_or_trace_is_missing(self) -> None:
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="liberty",
+                status="quoted",
+                quote_reference="LIA-QUOTE-BLOCKED",
+                expires_at=None,
+                warnings=[],
+                assumptions=[],
+                provider_context={
+                    "source": "provider_quote",
+                    "snapshotVersion": "v2",
+                    "quotedAt": "2026-03-18T15:45:00Z",
+                    "capturedAt": "2026-03-18T15:46:00Z",
+                    "exportArtifactType": "title_quote_snapshot",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(provenance["titleQuote"]["exportReadiness"], "blocked")
+        self.assertEqual(
+            provenance["titleQuote"]["exportReadinessReasonCodes"],
+            [
+                "missing_export_artifact",
+            ],
+        )
+
+    def test_export_readiness_is_blocked_when_critical_warning_is_present(self) -> None:
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="liberty",
+                status="quoted",
+                quote_reference="LIA-QUOTE-EXPIRED",
+                expires_at="2026-03-18T15:00:00Z",
+                warnings=[],
+                assumptions=[],
+                provider_context={
+                    "source": "provider_quote",
+                    "snapshotVersion": "v1",
+                    "quotedAt": "2026-03-18T15:45:00Z",
+                    "capturedAt": "2026-03-18T15:46:00Z",
+                    "exportArtifactId": "artifact-123",
+                    "exportArtifactType": "title_quote_snapshot",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(provenance["titleQuote"]["exportReadiness"], "blocked")
+        self.assertIn("critical_warning_present", provenance["titleQuote"]["exportReadinessReasonCodes"])
+
+    def test_export_readiness_is_conditional_when_source_or_snapshot_event_is_missing(self) -> None:
+        source_only = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="stub",
+                status="stub",
+                quote_reference=None,
+                expires_at=None,
+                warnings=[],
+                assumptions=[],
+                provider_context={
+                    "source": "stub",
+                    "exportArtifactId": "artifact-123",
+                    "exportArtifactType": "title_quote_snapshot",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+        snapshot_only = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="liberty",
+                status="not_requested",
+                quote_reference="LIA-QUOTE-SNAPSHOT",
+                expires_at=None,
+                warnings=[],
+                assumptions=[],
+                provider_context={
+                    "snapshotVersion": "v1",
+                    "capturedAt": "2026-03-18T15:46:00Z",
+                    "exportArtifactId": "artifact-123",
+                    "exportArtifactType": "title_quote_snapshot",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(source_only["titleQuote"]["sourceEventBundle"]["status"], "partial")
+        self.assertEqual(snapshot_only["titleQuote"]["sourceEventBundle"]["status"], "partial")
+        self.assertEqual(source_only["titleQuote"]["exportReadiness"], "blocked")
+        self.assertEqual(snapshot_only["titleQuote"]["exportReadiness"], "conditional")
+        self.assertIn("missing_source_event", snapshot_only["titleQuote"]["exportReadinessReasonCodes"])
+
+    def test_export_readiness_is_conditional_when_only_non_critical_warning_exists(self) -> None:
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="liberty",
+                status="quoted",
+                quote_reference="LIA-QUOTE-WARN",
+                expires_at=None,
+                warnings=[
+                    "Liberty public iframe currently exposes a tokenized app launch rather than a documented backend quote API."
+                ],
+                assumptions=[],
+                provider_context={
+                    "source": "liberty_iframe_snapshot",
+                    "snapshotVersion": "v1",
+                    "quotedAt": "2026-03-18T15:45:00Z",
+                    "capturedAt": "2026-03-18T15:46:00Z",
+                    "exportArtifactId": "artifact-123",
+                    "exportArtifactType": "title_quote_snapshot",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(provenance["titleQuote"]["exportReadiness"], "conditional")
+        self.assertEqual(provenance["titleQuote"]["exportReadinessReasonCodes"], ["warning_present"])
+
+    def test_audit_completeness_is_partial_when_only_some_audit_signals_exist(self) -> None:
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key="liberty",
+                status="quoted",
+                quote_reference="LIA-QUOTE-PARTIAL",
+                expires_at=None,
+                warnings=[],
+                assumptions=[],
+                provider_context={
+                    "source": "provider_quote",
+                    "exportArtifactId": "artifact-123",
+                    "exportArtifactType": "title_quote_snapshot",
+                },
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(provenance["titleQuote"]["auditCompleteness"], "partial")
+
+    def test_export_readiness_reason_codes_use_exact_deterministic_order(self) -> None:
+        provenance = build_price_engine_provenance(
+            title_quote_context=PriceEngineTitleQuoteContext(
+                fee_inputs={},
+                provider_key=None,
+                status="not_requested",
+                quote_reference=None,
+                expires_at=None,
+                warnings=["Stub response only. Vendor implementation remains disabled pending an approved API or documented embed bridge."],
+                assumptions=[],
+                provider_context={},
+            ),
+            scenario_profile="flip",
+            applied_preset_fields=[],
+            validation_warnings=[],
+        )
+
+        self.assertEqual(
+            provenance["titleQuote"]["exportReadinessReasonCodes"],
+            [
+                "missing_export_artifact",
+                "missing_export_trace",
+                "missing_quote_reference",
+                "missing_snapshot_version",
+                "missing_snapshot_trace",
+                "missing_source_event",
+                "missing_snapshot_event",
+            ],
+        )
 
 
 if __name__ == "__main__":

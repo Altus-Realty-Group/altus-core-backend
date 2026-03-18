@@ -196,7 +196,12 @@ Response shape:
         "hasSourceEvent": true,
         "hasSnapshotEvent": false,
         "isComplete": false
-      }
+      },
+      "exportReadiness": "blocked",
+      "exportReadinessLabel": "Export Blocked",
+      "exportReadinessReasonCodes": [],
+      "auditCompleteness": "partial",
+      "auditCompletenessLabel": "Audit Partial"
     },
     "scenario": {
       "profile": "string",
@@ -268,6 +273,11 @@ Notes:
 - `Provenance.titleQuote.sourceEventBundle.isComplete` is `true` only when both source and snapshot events are present.
 - `Provenance.titleQuote.sourceEventBundle.status` is `complete`, `partial`, or `missing`, derived only from source/snapshot event presence.
 - `Provenance.titleQuote.sourceEventBundle.statusLabel` is derived only from `status` using `Complete Event Bundle`, `Partial Event Bundle`, or `Missing Event Bundle`.
+- `Provenance.titleQuote.exportReadiness` is `ready`, `conditional`, or `blocked`, derived only from deterministic provenance completeness and warning-state checks.
+- `Provenance.titleQuote.exportReadinessLabel` is derived only from `exportReadiness` using `Export Ready`, `Conditionally Export Ready`, or `Export Blocked`.
+- `Provenance.titleQuote.exportReadinessReasonCodes` surfaces unique deterministic reason codes in fixed order from this set only: `missing_export_artifact`, `missing_export_trace`, `missing_quote_reference`, `missing_snapshot_version`, `missing_source_trace`, `missing_snapshot_trace`, `missing_source_event`, `missing_snapshot_event`, `critical_warning_present`, and `warning_present`.
+- `Provenance.titleQuote.auditCompleteness` is `complete`, `partial`, or `minimal`, derived only from deterministic trace, event, and snapshot-reference presence checks.
+- `Provenance.titleQuote.auditCompletenessLabel` is derived only from `auditCompleteness` using `Audit Complete`, `Audit Partial`, or `Audit Minimal`.
 - `Provenance.scenario.profile` echoes the selected scenario profile.
 - `Provenance.scenario.appliedPresetFields` and `Provenance.scenario.validationWarnings` repeat the normalized assumption path used for the calculation.
 - `Provenance.trace.generatedAt` is returned as `null` in this slice to preserve deterministic responses while reserving the trace field for future additive timing metadata.

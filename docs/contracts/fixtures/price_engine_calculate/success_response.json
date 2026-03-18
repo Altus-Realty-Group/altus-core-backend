@@ -103,7 +103,20 @@
         "hasSourceEvent": true,
         "hasSnapshotEvent": false,
         "isComplete": false
-      }
+      },
+      "exportReadiness": "blocked",
+      "exportReadinessLabel": "Export Blocked",
+      "exportReadinessReasonCodes": [
+        "missing_export_artifact",
+        "missing_export_trace",
+        "missing_quote_reference",
+        "missing_snapshot_version",
+        "missing_snapshot_trace",
+        "missing_snapshot_event",
+        "warning_present"
+      ],
+      "auditCompleteness": "partial",
+      "auditCompletenessLabel": "Audit Partial"
     },
     "scenario": {
       "profile": "flip",
