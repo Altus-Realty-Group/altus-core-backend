@@ -24,6 +24,11 @@ def build_price_engine_provenance(
             "provider": provider,
             "status": status,
             "source": source,
+            "quoteReference": title_quote_context.quote_reference,
+            "snapshotVersion": _string_or_none(title_quote_context.provider_context.get("snapshotVersion")),
+            "quotedAt": _string_or_none(title_quote_context.provider_context.get("quotedAt")),
+            "capturedAt": _string_or_none(title_quote_context.provider_context.get("capturedAt")),
+            "expiresAt": title_quote_context.expires_at,
         },
         "scenario": {
             "profile": scenario_profile,
@@ -42,3 +47,12 @@ def _source_from_status(status: str) -> str:
     if status == "quoted":
         return "provider_quote"
     return "not_requested"
+
+
+def _string_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned or None

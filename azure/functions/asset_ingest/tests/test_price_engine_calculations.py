@@ -168,6 +168,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "provider": "stub",
                     "status": "stub",
                     "source": "stub",
+                    "quoteReference": None,
+                    "snapshotVersion": None,
+                    "quotedAt": None,
+                    "capturedAt": None,
+                    "expiresAt": None,
                 },
                 "scenario": {
                     "profile": "flip",
@@ -299,6 +304,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "provider": "liberty",
                 "status": "quoted",
                 "source": "liberty_iframe_snapshot",
+                "quoteReference": "LIA-QUOTE-001",
+                "snapshotVersion": "v1",
+                "quotedAt": "2026-03-18T15:45:00Z",
+                "capturedAt": "2026-03-18T15:46:00Z",
+                "expiresAt": None,
             },
         )
         self.assertEqual(metrics["Provenance"]["trace"]["generatedAt"], None)
@@ -358,6 +368,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "provider": "liberty",
                 "status": "fallback_stub",
                 "source": "liberty_iframe_snapshot",
+                "quoteReference": None,
+                "snapshotVersion": None,
+                "quotedAt": None,
+                "capturedAt": None,
+                "expiresAt": None,
             },
         )
 

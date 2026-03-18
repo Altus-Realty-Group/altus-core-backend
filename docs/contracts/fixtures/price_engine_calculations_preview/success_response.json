@@ -39,7 +39,12 @@
     "titleQuote": {
       "provider": "stub",
       "status": "stub",
-      "source": "stub"
+      "source": "stub",
+      "quoteReference": null,
+      "snapshotVersion": null,
+      "quotedAt": null,
+      "capturedAt": null,
+      "expiresAt": null
     },
     "scenario": {
       "profile": "flip",

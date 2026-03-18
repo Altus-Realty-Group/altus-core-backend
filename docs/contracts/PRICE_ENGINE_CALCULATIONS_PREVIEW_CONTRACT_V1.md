@@ -142,7 +142,12 @@ Response shape:
     "titleQuote": {
       "provider": "string",
       "status": "string",
-      "source": "string"
+      "source": "string",
+      "quoteReference": null,
+      "snapshotVersion": null,
+      "quotedAt": null,
+      "capturedAt": null,
+      "expiresAt": null
     },
     "scenario": {
       "profile": "string",
@@ -182,6 +187,9 @@ Notes:
 - `Provenance.titleQuote.provider` surfaces the normalized quote provider key such as `stub`, `liberty`, or `none`.
 - `Provenance.titleQuote.status` surfaces the normalized quote status such as `stub`, `quoted`, `fallback_stub`, or `not_requested`.
 - `Provenance.titleQuote.source` surfaces the canonical source path such as `stub`, `liberty_iframe_snapshot`, or `not_requested`.
+- `Provenance.titleQuote.quoteReference` surfaces the provider quote or snapshot reference when available.
+- `Provenance.titleQuote.snapshotVersion` surfaces the normalized snapshot version when available.
+- `Provenance.titleQuote.quotedAt`, `capturedAt`, and `expiresAt` surface normalized quote-timing metadata when available and are otherwise `null`.
 - `Provenance.scenario.profile` echoes the selected scenario profile.
 - `Provenance.scenario.appliedPresetFields` and `Provenance.scenario.validationWarnings` repeat the normalized assumption path used for the calculation.
 - `Provenance.trace.generatedAt` is returned as `null` in this slice to preserve deterministic responses while reserving the trace field for future additive timing metadata.
