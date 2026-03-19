@@ -192,6 +192,46 @@ def build_price_engine_provenance(
         integration_has_trace=integration_has_trace,
         integration_has_event=integration_has_event,
     )
+    integration_export_reason_codes = _build_integration_export_reason_codes(
+        integration_mode=corelogic_integration.mode,
+        integration_execution_state=integration_execution_state,
+        integration_artifact_type=corelogic_integration.artifact_type,
+        integration_artifact_id=corelogic_integration.artifact_id,
+        integration_trace_key=corelogic_integration.trace_key,
+        integration_event_type=corelogic_integration.event_type,
+        integration_event_ref=corelogic_integration.event_ref,
+        integration_quote_reference=integration_quote_reference,
+        integration_snapshot_version=integration_snapshot_version,
+        integration_payload_profile=integration_payload_profile,
+        integration_estimated_total_title_cost=integration_estimated_total_title_cost,
+        integration_currency=integration_currency,
+        integration_fee_line_sum=integration_fee_line_sum,
+        integration_fee_delta=integration_fee_delta,
+        integration_fee_reconciliation_status=integration_fee_reconciliation_status,
+        integration_fee_reconciliation_match=_build_integration_fee_reconciliation_match(
+            integration_fee_reconciliation_status,
+        ),
+    )
+    integration_export_readiness = _build_integration_export_readiness(
+        integration_export_reason_codes=integration_export_reason_codes,
+    )
+    integration_audit_completeness = _build_integration_audit_completeness(
+        integration_mode=corelogic_integration.mode,
+        integration_execution_state=integration_execution_state,
+        integration_result_type=integration_result_type,
+        integration_bundle_status=integration_bundle_status,
+        integration_quote_reference=integration_quote_reference,
+        integration_snapshot_version=integration_snapshot_version,
+        integration_payload_profile=integration_payload_profile,
+        integration_currency=integration_currency,
+        integration_estimated_total_title_cost=integration_estimated_total_title_cost,
+        integration_fee_reconciliation_match=_build_integration_fee_reconciliation_match(
+            integration_fee_reconciliation_status,
+        ),
+    )
+    integration_fee_reconciliation_match = _build_integration_fee_reconciliation_match(
+        integration_fee_reconciliation_status,
+    )
 
     return {
         "titleQuote": {
@@ -261,9 +301,7 @@ def build_price_engine_provenance(
             "integrationFeeReconciliationLabel": _build_integration_fee_reconciliation_label(
                 integration_fee_reconciliation_status,
             ),
-            "integrationFeeReconciliationMatch": _build_integration_fee_reconciliation_match(
-                integration_fee_reconciliation_status,
-            ),
+            "integrationFeeReconciliationMatch": integration_fee_reconciliation_match,
             "integrationBundleStatus": integration_bundle_status,
             "integrationBundleStatusLabel": _build_integration_bundle_status_label(
                 integration_bundle_status,
@@ -277,6 +315,15 @@ def build_price_engine_provenance(
                 integration_snapshot_version=integration_snapshot_version,
                 integration_currency=integration_currency,
                 integration_estimated_total_title_cost=integration_estimated_total_title_cost,
+            ),
+            "integrationExportReadiness": integration_export_readiness,
+            "integrationExportReadinessLabel": _build_integration_export_readiness_label(
+                integration_export_readiness,
+            ),
+            "integrationExportReasonCodes": integration_export_reason_codes,
+            "integrationAuditCompleteness": integration_audit_completeness,
+            "integrationAuditCompletenessLabel": _build_integration_audit_completeness_label(
+                integration_audit_completeness,
             ),
             "exportReadiness": export_readiness,
             "exportReadinessLabel": _build_export_readiness_label(export_readiness),
@@ -873,3 +920,145 @@ def _build_integration_is_export_ready(
         and _is_non_empty_string(integration_currency)
         and integration_estimated_total_title_cost is not None
     )
+
+
+def _build_integration_export_reason_codes(
+    *,
+    integration_mode: str,
+    integration_execution_state: Any,
+    integration_artifact_type: Any,
+    integration_artifact_id: Any,
+    integration_trace_key: Any,
+    integration_event_type: Any,
+    integration_event_ref: Any,
+    integration_quote_reference: Any,
+    integration_snapshot_version: Any,
+    integration_payload_profile: Any,
+    integration_estimated_total_title_cost: Any,
+    integration_currency: Any,
+    integration_fee_line_sum: Any,
+    integration_fee_delta: Any,
+    integration_fee_reconciliation_status: Any,
+    integration_fee_reconciliation_match: Any,
+) -> list[str] | None:
+    if integration_mode != "mock" or integration_execution_state != "mock_executed":
+        return None
+
+    ordered_reasons: list[tuple[str, bool]] = [
+        (
+            "missing_integration_artifact",
+            not (_is_non_empty_string(integration_artifact_type) and _is_non_empty_string(integration_artifact_id)),
+        ),
+        ("missing_integration_trace", not _is_non_empty_string(integration_trace_key)),
+        (
+            "missing_integration_event",
+            not (_is_non_empty_string(integration_event_type) and _is_non_empty_string(integration_event_ref)),
+        ),
+        ("missing_integration_quote_reference", not _is_non_empty_string(integration_quote_reference)),
+        ("missing_integration_snapshot_version", not _is_non_empty_string(integration_snapshot_version)),
+        ("missing_integration_currency", not _is_non_empty_string(integration_currency)),
+        ("missing_integration_total_cost", integration_estimated_total_title_cost is None),
+        ("missing_integration_payload_profile", not _is_non_empty_string(integration_payload_profile)),
+        (
+            "fee_reconciliation_missing",
+            any(
+                value is None
+                for value in [
+                    integration_fee_line_sum,
+                    integration_fee_delta,
+                    integration_fee_reconciliation_status,
+                    integration_fee_reconciliation_match,
+                ]
+            ),
+        ),
+        (
+            "fee_reconciliation_mismatch",
+            integration_fee_reconciliation_status == "mismatched" or integration_fee_reconciliation_match is False,
+        ),
+    ]
+    return [code for code, include in ordered_reasons if include]
+
+
+def _build_integration_export_readiness(
+    *,
+    integration_export_reason_codes: list[str] | None,
+) -> str | None:
+    if integration_export_reason_codes is None:
+        return None
+
+    blocked_codes = {
+        "missing_integration_artifact",
+        "missing_integration_trace",
+        "missing_integration_event",
+        "missing_integration_quote_reference",
+        "missing_integration_snapshot_version",
+        "missing_integration_currency",
+        "missing_integration_total_cost",
+    }
+    conditional_codes = {
+        "missing_integration_payload_profile",
+        "fee_reconciliation_missing",
+        "fee_reconciliation_mismatch",
+    }
+
+    if any(code in blocked_codes for code in integration_export_reason_codes):
+        return "blocked"
+    if any(code in conditional_codes for code in integration_export_reason_codes):
+        return "conditional"
+    return "ready"
+
+
+def _build_integration_export_readiness_label(
+    integration_export_readiness: str | None,
+) -> str | None:
+    if integration_export_readiness == "ready":
+        return "Integration Export Ready"
+    if integration_export_readiness == "conditional":
+        return "Integration Export Conditional"
+    if integration_export_readiness == "blocked":
+        return "Integration Export Blocked"
+    return None
+
+
+def _build_integration_audit_completeness(
+    *,
+    integration_mode: str,
+    integration_execution_state: Any,
+    integration_result_type: Any,
+    integration_bundle_status: Any,
+    integration_quote_reference: Any,
+    integration_snapshot_version: Any,
+    integration_payload_profile: Any,
+    integration_currency: Any,
+    integration_estimated_total_title_cost: Any,
+    integration_fee_reconciliation_match: Any,
+) -> str | None:
+    if integration_mode != "mock" or integration_execution_state != "mock_executed":
+        return None
+
+    signals = [
+        integration_bundle_status == "complete",
+        _is_non_empty_string(integration_quote_reference),
+        _is_non_empty_string(integration_snapshot_version),
+        _is_non_empty_string(integration_payload_profile),
+        _is_non_empty_string(integration_currency),
+        integration_estimated_total_title_cost is not None,
+        integration_fee_reconciliation_match is True,
+    ]
+    if all(signals):
+        return "complete"
+    if any(signals):
+        return "partial"
+    return "minimal"
+
+
+def _build_integration_audit_completeness_label(
+    integration_audit_completeness: str | None,
+) -> str | None:
+    if integration_audit_completeness == "complete":
+        return "Integration Audit Complete"
+    if integration_audit_completeness == "partial":
+        return "Integration Audit Partial"
+    if integration_audit_completeness == "minimal":
+        return "Integration Audit Minimal"
+    return None

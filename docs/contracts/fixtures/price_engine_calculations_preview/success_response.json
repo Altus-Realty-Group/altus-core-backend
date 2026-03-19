@@ -147,6 +147,11 @@
       "integrationHasTrace": null,
       "integrationHasEvent": null,
       "integrationIsExportReady": null,
+      "integrationExportReadiness": null,
+      "integrationExportReadinessLabel": null,
+      "integrationExportReasonCodes": null,
+      "integrationAuditCompleteness": null,
+      "integrationAuditCompletenessLabel": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [
