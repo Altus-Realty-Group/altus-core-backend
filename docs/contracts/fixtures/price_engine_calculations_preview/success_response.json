@@ -182,6 +182,11 @@
       "integrationExportPacketCompleteness": null,
       "integrationExportPacketMissing": null,
       "integrationExportPacketReady": null,
+      "integrationExportPacketSummaryStatus": null,
+      "integrationExportPacketSummaryLabel": null,
+      "integrationExportPacketSummaryPriority": null,
+      "integrationExportPacketSummaryReasonCodes": null,
+      "integrationExportPacketSummaryBlocking": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [

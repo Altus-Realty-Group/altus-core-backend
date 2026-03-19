@@ -316,6 +316,20 @@ def build_price_engine_provenance(
         integration_fee_reconciliation_status=integration_fee_reconciliation_status,
         integration_fee_reconciliation_match=integration_fee_reconciliation_match,
     )
+    integration_export_packet_ready = _build_integration_export_packet_ready(
+        integration_export_packet_status=integration_export_packet_status,
+        integration_export_packet_completeness=integration_export_packet_completeness,
+        integration_export_packet_missing=integration_export_packet_missing,
+    )
+    integration_export_packet_summary_status = _build_integration_export_packet_summary_status(
+        integration_mode=corelogic_integration.mode,
+        integration_execution_state=integration_execution_state,
+        integration_export_packet_status=integration_export_packet_status,
+        integration_export_packet_completeness=integration_export_packet_completeness,
+        integration_export_packet_missing=integration_export_packet_missing,
+        integration_export_packet_ready=integration_export_packet_ready,
+        integration_operator_card_status=integration_operator_card_status,
+    )
 
     return {
         "titleQuote": {
@@ -476,10 +490,19 @@ def build_price_engine_provenance(
             ),
             "integrationExportPacketCompleteness": integration_export_packet_completeness,
             "integrationExportPacketMissing": integration_export_packet_missing,
-            "integrationExportPacketReady": _build_integration_export_packet_ready(
-                integration_export_packet_status=integration_export_packet_status,
-                integration_export_packet_completeness=integration_export_packet_completeness,
-                integration_export_packet_missing=integration_export_packet_missing,
+            "integrationExportPacketReady": integration_export_packet_ready,
+            "integrationExportPacketSummaryStatus": integration_export_packet_summary_status,
+            "integrationExportPacketSummaryLabel": _build_integration_export_packet_summary_label(
+                integration_export_packet_summary_status,
+            ),
+            "integrationExportPacketSummaryPriority": _build_integration_export_packet_summary_priority(
+                integration_export_packet_summary_status,
+            ),
+            "integrationExportPacketSummaryReasonCodes": _build_integration_export_packet_summary_reason_codes(
+                integration_export_packet_summary_status,
+            ),
+            "integrationExportPacketSummaryBlocking": _build_integration_export_packet_summary_blocking(
+                integration_export_packet_summary_status,
             ),
             "exportReadiness": export_readiness,
             "exportReadinessLabel": _build_export_readiness_label(export_readiness),
@@ -1825,3 +1848,83 @@ def _build_integration_export_packet_ready(
         and integration_export_packet_completeness == "complete"
         and integration_export_packet_missing == []
     )
+
+
+def _build_integration_export_packet_summary_status(
+    *,
+    integration_mode: str,
+    integration_execution_state: Any,
+    integration_export_packet_status: str | None,
+    integration_export_packet_completeness: str | None,
+    integration_export_packet_missing: list[str] | None,
+    integration_export_packet_ready: bool | None,
+    integration_operator_card_status: str | None,
+) -> str | None:
+    if integration_execution_state is None:
+        return None
+    if integration_mode == "mock" and integration_execution_state != "mock_executed":
+        return None
+    if integration_mode not in {"mock", "live"}:
+        return None
+    if (
+        integration_export_packet_status == "blocked"
+        or integration_operator_card_status == "blocked"
+    ):
+        return "blocked"
+    if (
+        integration_export_packet_status == "conditional"
+        or integration_operator_card_status == "conditional"
+        or integration_export_packet_completeness in {"partial", "minimal"}
+        or bool(integration_export_packet_missing)
+    ):
+        return "conditional"
+    if (
+        integration_export_packet_status == "ready"
+        and integration_export_packet_completeness == "complete"
+        and integration_export_packet_ready is True
+    ):
+        return "ready"
+    return None
+
+
+def _build_integration_export_packet_summary_label(
+    integration_export_packet_summary_status: str | None,
+) -> str | None:
+    mapping = {
+        "ready": "Export Packet Summary Ready",
+        "conditional": "Export Packet Summary Conditional",
+        "blocked": "Export Packet Summary Blocked",
+    }
+    return mapping.get(integration_export_packet_summary_status)
+
+
+def _build_integration_export_packet_summary_priority(
+    integration_export_packet_summary_status: str | None,
+) -> int | None:
+    mapping = {
+        "blocked": 1,
+        "conditional": 2,
+        "ready": 3,
+    }
+    return mapping.get(integration_export_packet_summary_status)
+
+
+def _build_integration_export_packet_summary_reason_codes(
+    integration_export_packet_summary_status: str | None,
+) -> list[str] | None:
+    if integration_export_packet_summary_status is None:
+        return None
+    ordered_reasons = [
+        ("packet_summary_blocked", integration_export_packet_summary_status == "blocked"),
+        ("packet_summary_conditional", integration_export_packet_summary_status == "conditional"),
+        ("packet_summary_ready", integration_export_packet_summary_status == "ready"),
+    ]
+    return [code for code, include in ordered_reasons if include]
+
+
+def _build_integration_export_packet_summary_blocking(
+    integration_export_packet_summary_status: str | None,
+) -> bool | None:
+    if integration_export_packet_summary_status is None:
+        return None
+    return integration_export_packet_summary_status == "blocked"

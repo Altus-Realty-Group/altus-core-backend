@@ -272,6 +272,11 @@ Response shape:
       "integrationExportPacketCompleteness": null,
       "integrationExportPacketMissing": null,
       "integrationExportPacketReady": null,
+      "integrationExportPacketSummaryStatus": null,
+      "integrationExportPacketSummaryLabel": null,
+      "integrationExportPacketSummaryPriority": null,
+      "integrationExportPacketSummaryReasonCodes": null,
+      "integrationExportPacketSummaryBlocking": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [],
@@ -377,6 +382,8 @@ Notes:
 - In `mock` mode, those operator-card fields resolve deterministically to `monitor`, `Operator Card Monitor`, `info`, `4`, and `["card_monitor_only"]`.
 - `Provenance.titleQuote.integrationExportPacketStatus`, `integrationExportPacketLabel`, `integrationExportPacketCompleteness`, `integrationExportPacketMissing`, and `integrationExportPacketReady` are derived only from the existing route-visible CoreLogic integration export, bundle, operator-card, and fee-reconciliation fields and remain `null` unless an integration execution envelope exists.
 - In `mock` mode, those export-packet fields resolve deterministically to `ready`, `Integration Export Packet Ready`, `complete`, `[]`, and `true`.
+- `Provenance.titleQuote.integrationExportPacketSummaryStatus`, `integrationExportPacketSummaryLabel`, `integrationExportPacketSummaryPriority`, `integrationExportPacketSummaryReasonCodes`, and `integrationExportPacketSummaryBlocking` are derived only from the existing route-visible CoreLogic export-packet and operator-card fields and remain `null` unless an integration execution envelope exists.
+- In `mock` mode, those export-packet summary fields resolve deterministically to `ready`, `Export Packet Summary Ready`, `3`, `["packet_summary_ready"]`, and `false`.
 - `Provenance.titleQuote.exportReadiness` is `ready`, `conditional`, or `blocked`, derived only from deterministic provenance completeness and warning-state checks.
 - `Provenance.titleQuote.exportReadinessLabel` is derived only from `exportReadiness` using `Export Ready`, `Conditionally Export Ready`, or `Export Blocked`.
 - `Provenance.titleQuote.exportReadinessReasonCodes` surfaces unique deterministic reason codes in fixed order from this set only: `missing_export_artifact`, `missing_export_trace`, `missing_quote_reference`, `missing_snapshot_version`, `missing_source_trace`, `missing_snapshot_trace`, `missing_source_event`, `missing_snapshot_event`, `critical_warning_present`, and `warning_present`.
