@@ -167,6 +167,11 @@
       "integrationOperatorActionPriority": null,
       "integrationOperatorActionReasonCodes": null,
       "integrationOperatorActionBlocking": null,
+      "integrationOperatorSnapshotStatus": null,
+      "integrationOperatorSnapshotLabel": null,
+      "integrationOperatorSnapshotSeverity": null,
+      "integrationOperatorSnapshotOrder": null,
+      "integrationOperatorSnapshotReasonCodes": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [

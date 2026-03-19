@@ -265,6 +265,17 @@ def build_price_engine_provenance(
         integration_fee_reconciliation_status=integration_fee_reconciliation_status,
         integration_fee_reconciliation_match=integration_fee_reconciliation_match,
     )
+    integration_operator_snapshot_status = _build_integration_operator_snapshot_status(
+        integration_mode=corelogic_integration.mode,
+        integration_execution_state=integration_execution_state,
+        integration_operator_action=integration_operator_action,
+        integration_operator_action_blocking=_build_integration_operator_action_blocking(
+            integration_operator_action,
+        ),
+        integration_export_readiness=integration_export_readiness,
+        integration_audit_completeness=integration_audit_completeness,
+        integration_fee_reconciliation_status=integration_fee_reconciliation_status,
+    )
 
     return {
         "titleQuote": {
@@ -392,6 +403,19 @@ def build_price_engine_provenance(
             ),
             "integrationOperatorActionBlocking": _build_integration_operator_action_blocking(
                 integration_operator_action,
+            ),
+            "integrationOperatorSnapshotStatus": integration_operator_snapshot_status,
+            "integrationOperatorSnapshotLabel": _build_integration_operator_snapshot_label(
+                integration_operator_snapshot_status,
+            ),
+            "integrationOperatorSnapshotSeverity": _build_integration_operator_snapshot_severity(
+                integration_operator_snapshot_status,
+            ),
+            "integrationOperatorSnapshotOrder": _build_integration_operator_snapshot_order(
+                integration_operator_snapshot_status,
+            ),
+            "integrationOperatorSnapshotReasonCodes": _build_integration_operator_snapshot_reason_codes(
+                integration_operator_snapshot_status,
             ),
             "exportReadiness": export_readiness,
             "exportReadinessLabel": _build_export_readiness_label(export_readiness),
@@ -1421,3 +1445,95 @@ def _build_integration_operator_action_blocking(
         "resolve_export_blockers",
         "review_fee_mismatch",
     }
+
+
+def _build_integration_operator_snapshot_status(
+    *,
+    integration_mode: str,
+    integration_execution_state: Any,
+    integration_operator_action: str | None,
+    integration_operator_action_blocking: bool | None,
+    integration_export_readiness: str | None,
+    integration_audit_completeness: str | None,
+    integration_fee_reconciliation_status: str | None,
+) -> str | None:
+    if integration_execution_state is None:
+        return None
+    if integration_mode == "mock" and integration_execution_state != "mock_executed":
+        return None
+    if integration_mode not in {"mock", "live"}:
+        return None
+    if (
+        integration_operator_action_blocking is True
+        and integration_operator_action == "resolve_export_blockers"
+    ) or integration_export_readiness == "blocked":
+        return "blocked"
+    if (
+        integration_operator_action == "resolve_export_warnings"
+        or integration_export_readiness == "conditional"
+    ):
+        return "conditional"
+    if (
+        integration_operator_action in {"review_fee_mismatch", "complete_audit_data"}
+        or integration_fee_reconciliation_status == "mismatched"
+        or integration_audit_completeness in {"partial", "minimal"}
+    ):
+        return "review"
+    if integration_operator_action == "monitor_mock_state":
+        return "monitor"
+    if integration_operator_action == "ready_no_action":
+        return "ready"
+    return None
+
+
+def _build_integration_operator_snapshot_label(
+    integration_operator_snapshot_status: str | None,
+) -> str | None:
+    mapping = {
+        "blocked": "Operator Snapshot Blocked",
+        "conditional": "Operator Snapshot Conditional",
+        "review": "Operator Snapshot Review",
+        "monitor": "Operator Snapshot Monitor",
+        "ready": "Operator Snapshot Ready",
+    }
+    return mapping.get(integration_operator_snapshot_status)
+
+
+def _build_integration_operator_snapshot_severity(
+    integration_operator_snapshot_status: str | None,
+) -> str | None:
+    if integration_operator_snapshot_status == "blocked":
+        return "critical"
+    if integration_operator_snapshot_status in {"conditional", "review"}:
+        return "warning"
+    if integration_operator_snapshot_status in {"monitor", "ready"}:
+        return "info"
+    return None
+
+
+def _build_integration_operator_snapshot_order(
+    integration_operator_snapshot_status: str | None,
+) -> int | None:
+    mapping = {
+        "blocked": 1,
+        "conditional": 2,
+        "review": 3,
+        "monitor": 4,
+        "ready": 5,
+    }
+    return mapping.get(integration_operator_snapshot_status)
+
+
+def _build_integration_operator_snapshot_reason_codes(
+    integration_operator_snapshot_status: str | None,
+) -> list[str] | None:
+    if integration_operator_snapshot_status is None:
+        return None
+    ordered_reasons = [
+        ("snapshot_export_blocked", integration_operator_snapshot_status == "blocked"),
+        ("snapshot_export_conditional", integration_operator_snapshot_status == "conditional"),
+        ("snapshot_review_required", integration_operator_snapshot_status == "review"),
+        ("snapshot_monitor_only", integration_operator_snapshot_status == "monitor"),
+        ("snapshot_ready", integration_operator_snapshot_status == "ready"),
+    ]
+    return [code for code, include in ordered_reasons if include]
