@@ -162,6 +162,11 @@
       "integrationDisplaySeverity": null,
       "integrationDisplayOrder": null,
       "integrationDisplayReason": null,
+      "integrationOperatorAction": null,
+      "integrationOperatorActionLabel": null,
+      "integrationOperatorActionPriority": null,
+      "integrationOperatorActionReasonCodes": null,
+      "integrationOperatorActionBlocking": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [

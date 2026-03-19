@@ -256,6 +256,15 @@ def build_price_engine_provenance(
         integration_summary_priority=integration_summary_priority,
         integration_fee_reconciliation_status=integration_fee_reconciliation_status,
     )
+    integration_operator_action = _build_integration_operator_action(
+        integration_mode=corelogic_integration.mode,
+        integration_execution_state=integration_execution_state,
+        integration_live_ready=corelogic_integration.live_ready,
+        integration_export_readiness=integration_export_readiness,
+        integration_audit_completeness=integration_audit_completeness,
+        integration_fee_reconciliation_status=integration_fee_reconciliation_status,
+        integration_fee_reconciliation_match=integration_fee_reconciliation_match,
+    )
 
     return {
         "titleQuote": {
@@ -370,6 +379,19 @@ def build_price_engine_provenance(
             ),
             "integrationDisplayReason": _build_integration_display_reason(
                 integration_display_badge,
+            ),
+            "integrationOperatorAction": integration_operator_action,
+            "integrationOperatorActionLabel": _build_integration_operator_action_label(
+                integration_operator_action,
+            ),
+            "integrationOperatorActionPriority": _build_integration_operator_action_priority(
+                integration_operator_action,
+            ),
+            "integrationOperatorActionReasonCodes": _build_integration_operator_action_reason_codes(
+                integration_operator_action,
+            ),
+            "integrationOperatorActionBlocking": _build_integration_operator_action_blocking(
+                integration_operator_action,
             ),
             "exportReadiness": export_readiness,
             "exportReadinessLabel": _build_export_readiness_label(export_readiness),
@@ -1301,3 +1323,101 @@ def _build_integration_display_reason(
         "ready": "live_ready",
     }
     return mapping.get(integration_display_badge)
+
+
+def _build_integration_operator_action(
+    *,
+    integration_mode: str,
+    integration_execution_state: Any,
+    integration_live_ready: bool,
+    integration_export_readiness: str | None,
+    integration_audit_completeness: str | None,
+    integration_fee_reconciliation_status: str | None,
+    integration_fee_reconciliation_match: bool | None,
+) -> str | None:
+    if integration_execution_state is None:
+        return None
+    if integration_mode == "mock" and integration_execution_state != "mock_executed":
+        return None
+    if integration_mode not in {"mock", "live"}:
+        return None
+    if integration_export_readiness == "blocked":
+        return "resolve_export_blockers"
+    if (
+        integration_fee_reconciliation_status == "mismatched"
+        or integration_fee_reconciliation_match is False
+    ):
+        return "review_fee_mismatch"
+    if integration_export_readiness == "conditional":
+        return "resolve_export_warnings"
+    if integration_audit_completeness in {"partial", "minimal"}:
+        return "complete_audit_data"
+    if (
+        integration_mode == "mock"
+        and integration_export_readiness == "ready"
+        and integration_audit_completeness == "complete"
+    ):
+        return "monitor_mock_state"
+    if (
+        integration_mode == "live"
+        and integration_live_ready
+        and integration_export_readiness == "ready"
+        and integration_audit_completeness == "complete"
+    ):
+        return "ready_no_action"
+    return None
+
+
+def _build_integration_operator_action_label(
+    integration_operator_action: str | None,
+) -> str | None:
+    mapping = {
+        "resolve_export_blockers": "Resolve Export Blockers",
+        "resolve_export_warnings": "Resolve Export Warnings",
+        "complete_audit_data": "Complete Audit Data",
+        "review_fee_mismatch": "Review Fee Mismatch",
+        "monitor_mock_state": "Monitor Mock State",
+        "ready_no_action": "Ready No Action",
+    }
+    return mapping.get(integration_operator_action)
+
+
+def _build_integration_operator_action_priority(
+    integration_operator_action: str | None,
+) -> int | None:
+    mapping = {
+        "resolve_export_blockers": 1,
+        "review_fee_mismatch": 2,
+        "resolve_export_warnings": 3,
+        "complete_audit_data": 4,
+        "monitor_mock_state": 5,
+        "ready_no_action": 6,
+    }
+    return mapping.get(integration_operator_action)
+
+
+def _build_integration_operator_action_reason_codes(
+    integration_operator_action: str | None,
+) -> list[str] | None:
+    if integration_operator_action is None:
+        return None
+    ordered_reasons = [
+        ("operator_export_blocked", integration_operator_action == "resolve_export_blockers"),
+        ("operator_fee_mismatch", integration_operator_action == "review_fee_mismatch"),
+        ("operator_export_conditional", integration_operator_action == "resolve_export_warnings"),
+        ("operator_audit_incomplete", integration_operator_action == "complete_audit_data"),
+        ("operator_mock_monitor", integration_operator_action == "monitor_mock_state"),
+        ("operator_ready", integration_operator_action == "ready_no_action"),
+    ]
+    return [code for code, include in ordered_reasons if include]
+
+
+def _build_integration_operator_action_blocking(
+    integration_operator_action: str | None,
+) -> bool | None:
+    if integration_operator_action is None:
+        return None
+    return integration_operator_action in {
+        "resolve_export_blockers",
+        "review_fee_mismatch",
+    }
