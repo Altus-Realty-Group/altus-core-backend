@@ -24,7 +24,12 @@ from price_engine_calculations import (  # noqa: E402
     calculate_total_transaction_costs,
 )
 from price_engine_corelogic_scaffold import resolve_corelogic_integration_scaffold  # noqa: E402
-from price_engine_provenance import build_price_engine_provenance  # noqa: E402
+from price_engine_provenance import (  # noqa: E402
+    _build_integration_summary_priority,
+    _build_integration_summary_reason_codes,
+    _build_integration_summary_status,
+    build_price_engine_provenance,
+)
 from price_engine_service import calculate_price_engine  # noqa: E402
 from price_engine_title_quote_context import PriceEngineTitleQuoteContext  # noqa: E402
 
@@ -325,6 +330,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                     "integrationExportReasonCodes": None,
                     "integrationAuditCompleteness": None,
                     "integrationAuditCompletenessLabel": None,
+                    "integrationSummaryStatus": None,
+                    "integrationSummaryStatusLabel": None,
+                    "integrationSummaryPriority": None,
+                    "integrationSummaryPriorityLabel": None,
+                    "integrationSummaryReasonCodes": None,
                     "exportReadiness": "blocked",
                     "exportReadinessLabel": "Export Blocked",
                     "exportReadinessReasonCodes": [
@@ -583,6 +593,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "integrationExportReasonCodes": None,
                 "integrationAuditCompleteness": None,
                 "integrationAuditCompletenessLabel": None,
+                "integrationSummaryStatus": None,
+                "integrationSummaryStatusLabel": None,
+                "integrationSummaryPriority": None,
+                "integrationSummaryPriorityLabel": None,
+                "integrationSummaryReasonCodes": None,
                 "exportReadiness": "conditional",
                 "exportReadinessLabel": "Conditionally Export Ready",
                 "exportReadinessReasonCodes": [
@@ -766,6 +781,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
                 "integrationExportReasonCodes": None,
                 "integrationAuditCompleteness": None,
                 "integrationAuditCompletenessLabel": None,
+                "integrationSummaryStatus": None,
+                "integrationSummaryStatusLabel": None,
+                "integrationSummaryPriority": None,
+                "integrationSummaryPriorityLabel": None,
+                "integrationSummaryReasonCodes": None,
                 "exportReadiness": "blocked",
                 "exportReadinessLabel": "Export Blocked",
                 "exportReadinessReasonCodes": [
@@ -859,6 +879,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIsNone(provenance["titleQuote"]["integrationExportReasonCodes"])
         self.assertIsNone(provenance["titleQuote"]["integrationAuditCompleteness"])
         self.assertIsNone(provenance["titleQuote"]["integrationAuditCompletenessLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryStatus"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryStatusLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryPriority"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryPriorityLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryReasonCodes"])
 
     def test_source_event_bundle_status_is_missing_when_no_events_exist(self) -> None:
         provenance = build_price_engine_provenance(
@@ -937,6 +962,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIsNone(provenance["titleQuote"]["integrationExportReasonCodes"])
         self.assertIsNone(provenance["titleQuote"]["integrationAuditCompleteness"])
         self.assertIsNone(provenance["titleQuote"]["integrationAuditCompletenessLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryStatus"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryStatusLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryPriority"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryPriorityLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryReasonCodes"])
 
     def test_warning_family_display_priority_honors_exact_priority_order(self) -> None:
         provenance = build_price_engine_provenance(
@@ -1488,6 +1518,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertEqual(provenance["titleQuote"]["integrationExportReasonCodes"], [])
         self.assertEqual(provenance["titleQuote"]["integrationAuditCompleteness"], "complete")
         self.assertEqual(provenance["titleQuote"]["integrationAuditCompletenessLabel"], "Integration Audit Complete")
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryStatus"], "ready")
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryStatusLabel"], "Integration Summary Ready")
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryPriority"], "mock_ready")
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryPriorityLabel"], "Mock Ready")
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryReasonCodes"], ["summary_mock_ready"])
 
     def test_corelogic_scaffold_live_mode_with_partial_credentials_reports_partial_state(self) -> None:
         os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
@@ -1549,6 +1584,11 @@ class PriceEngineCalculationsTests(unittest.TestCase):
         self.assertIsNone(provenance["titleQuote"]["integrationExportReasonCodes"])
         self.assertIsNone(provenance["titleQuote"]["integrationAuditCompleteness"])
         self.assertIsNone(provenance["titleQuote"]["integrationAuditCompletenessLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryStatus"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryStatusLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryPriority"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryPriorityLabel"])
+        self.assertIsNone(provenance["titleQuote"]["integrationSummaryReasonCodes"])
 
     def test_corelogic_scaffold_live_mode_with_all_credentials_present_reports_ready_state(self) -> None:
         os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
@@ -1915,6 +1955,129 @@ class PriceEngineCalculationsTests(unittest.TestCase):
 
         self.assertEqual(provenance["titleQuote"]["integrationExportReadiness"], "blocked")
         self.assertEqual(provenance["titleQuote"]["integrationAuditCompleteness"], "minimal")
+
+    def test_integration_summary_degrades_to_blocked_when_export_is_blocked(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "mock"
+
+        scaffold = resolve_corelogic_integration_scaffold({})
+        with patch(
+            "price_engine_provenance.resolve_corelogic_integration_scaffold",
+            return_value=replace(scaffold, artifact_type=None),
+        ):
+            provenance = build_price_engine_provenance(
+                title_quote_context=PriceEngineTitleQuoteContext(
+                    fee_inputs={},
+                    provider_key="stub",
+                    status="stub",
+                    quote_reference=None,
+                    expires_at=None,
+                    warnings=[],
+                    assumptions=[],
+                    provider_context={},
+                ),
+                scenario_profile="flip",
+                applied_preset_fields=[],
+                validation_warnings=[],
+            )
+
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryStatus"], "blocked")
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryPriority"], "export_blocked")
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryReasonCodes"], ["summary_export_blocked"])
+
+    def test_integration_summary_degrades_to_conditional_when_export_is_conditional(self) -> None:
+        os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"
+        os.environ["PRICE_ENGINE_CORELOGIC_MODE"] = "mock"
+
+        scaffold = resolve_corelogic_integration_scaffold({})
+        incomplete_payload = dict(scaffold.normalized_result["payload"])
+        incomplete_payload["profile"] = None
+        incomplete_envelope = dict(scaffold.normalized_result)
+        incomplete_envelope["payload"] = incomplete_payload
+        with patch(
+            "price_engine_provenance.resolve_corelogic_integration_scaffold",
+            return_value=replace(scaffold, normalized_result=incomplete_envelope),
+        ):
+            provenance = build_price_engine_provenance(
+                title_quote_context=PriceEngineTitleQuoteContext(
+                    fee_inputs={},
+                    provider_key="stub",
+                    status="stub",
+                    quote_reference=None,
+                    expires_at=None,
+                    warnings=[],
+                    assumptions=[],
+                    provider_context={},
+                ),
+                scenario_profile="flip",
+                applied_preset_fields=[],
+                validation_warnings=[],
+            )
+
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryStatus"], "conditional")
+        self.assertEqual(provenance["titleQuote"]["integrationSummaryPriority"], "export_conditional")
+        self.assertEqual(
+            provenance["titleQuote"]["integrationSummaryReasonCodes"],
+            ["summary_export_conditional"],
+        )
+
+    def test_integration_summary_priority_can_classify_audit_partial(self) -> None:
+        self.assertEqual(
+            _build_integration_summary_status(
+                integration_mode="mock",
+                integration_execution_state="mock_executed",
+                integration_export_readiness="ready",
+                integration_guard_summary="mock",
+                integration_audit_completeness="partial",
+            ),
+            "conditional",
+        )
+        self.assertEqual(
+            _build_integration_summary_priority(
+                integration_mode="mock",
+                integration_execution_state="mock_executed",
+                integration_live_ready=False,
+                integration_guard_summary="mock",
+                integration_export_readiness="ready",
+                integration_audit_completeness="partial",
+            ),
+            "audit_partial",
+        )
+        self.assertEqual(
+            _build_integration_summary_reason_codes(
+                integration_summary_priority="audit_partial",
+            ),
+            ["summary_audit_partial"],
+        )
+
+    def test_integration_summary_priority_can_classify_audit_minimal(self) -> None:
+        self.assertEqual(
+            _build_integration_summary_status(
+                integration_mode="mock",
+                integration_execution_state="mock_executed",
+                integration_export_readiness="ready",
+                integration_guard_summary="mock",
+                integration_audit_completeness="minimal",
+            ),
+            "conditional",
+        )
+        self.assertEqual(
+            _build_integration_summary_priority(
+                integration_mode="mock",
+                integration_execution_state="mock_executed",
+                integration_live_ready=False,
+                integration_guard_summary="mock",
+                integration_export_readiness="ready",
+                integration_audit_completeness="minimal",
+            ),
+            "audit_minimal",
+        )
+        self.assertEqual(
+            _build_integration_summary_reason_codes(
+                integration_summary_priority="audit_minimal",
+            ),
+            ["summary_audit_minimal"],
+        )
 
     def test_integration_bundle_status_degrades_when_artifact_fields_are_missing(self) -> None:
         os.environ["PRICE_ENGINE_CORELOGIC_ENABLED"] = "true"

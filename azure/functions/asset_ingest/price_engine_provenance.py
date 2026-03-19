@@ -232,6 +232,24 @@ def build_price_engine_provenance(
     integration_fee_reconciliation_match = _build_integration_fee_reconciliation_match(
         integration_fee_reconciliation_status,
     )
+    integration_summary_status = _build_integration_summary_status(
+        integration_mode=corelogic_integration.mode,
+        integration_execution_state=integration_execution_state,
+        integration_export_readiness=integration_export_readiness,
+        integration_guard_summary=corelogic_integration.guard_summary,
+        integration_audit_completeness=integration_audit_completeness,
+    )
+    integration_summary_priority = _build_integration_summary_priority(
+        integration_mode=corelogic_integration.mode,
+        integration_execution_state=integration_execution_state,
+        integration_live_ready=corelogic_integration.live_ready,
+        integration_guard_summary=corelogic_integration.guard_summary,
+        integration_export_readiness=integration_export_readiness,
+        integration_audit_completeness=integration_audit_completeness,
+    )
+    integration_summary_reason_codes = _build_integration_summary_reason_codes(
+        integration_summary_priority=integration_summary_priority,
+    )
 
     return {
         "titleQuote": {
@@ -325,6 +343,15 @@ def build_price_engine_provenance(
             "integrationAuditCompletenessLabel": _build_integration_audit_completeness_label(
                 integration_audit_completeness,
             ),
+            "integrationSummaryStatus": integration_summary_status,
+            "integrationSummaryStatusLabel": _build_integration_summary_status_label(
+                integration_summary_status,
+            ),
+            "integrationSummaryPriority": integration_summary_priority,
+            "integrationSummaryPriorityLabel": _build_integration_summary_priority_label(
+                integration_summary_priority,
+            ),
+            "integrationSummaryReasonCodes": integration_summary_reason_codes,
             "exportReadiness": export_readiness,
             "exportReadinessLabel": _build_export_readiness_label(export_readiness),
             "exportReadinessReasonCodes": export_readiness_reason_codes,
@@ -1062,3 +1089,111 @@ def _build_integration_audit_completeness_label(
     if integration_audit_completeness == "minimal":
         return "Integration Audit Minimal"
     return None
+
+
+def _build_integration_summary_status(
+    *,
+    integration_mode: str,
+    integration_execution_state: Any,
+    integration_export_readiness: str | None,
+    integration_guard_summary: str | None,
+    integration_audit_completeness: str | None,
+) -> str | None:
+    if integration_mode != "mock" or integration_execution_state != "mock_executed":
+        return None
+    if integration_export_readiness == "blocked" or integration_guard_summary in {
+        "blocked_live_calls_not_allowed",
+        "blocked_missing_credentials",
+    }:
+        return "blocked"
+    if integration_export_readiness == "conditional" or integration_audit_completeness in {
+        "partial",
+        "minimal",
+    }:
+        return "conditional"
+    if integration_export_readiness == "ready" and integration_audit_completeness == "complete":
+        return "ready"
+    return None
+
+
+def _build_integration_summary_status_label(
+    integration_summary_status: str | None,
+) -> str | None:
+    if integration_summary_status == "ready":
+        return "Integration Summary Ready"
+    if integration_summary_status == "conditional":
+        return "Integration Summary Conditional"
+    if integration_summary_status == "blocked":
+        return "Integration Summary Blocked"
+    return None
+
+
+def _build_integration_summary_priority(
+    *,
+    integration_mode: str,
+    integration_execution_state: Any,
+    integration_live_ready: bool,
+    integration_guard_summary: str | None,
+    integration_export_readiness: str | None,
+    integration_audit_completeness: str | None,
+) -> str | None:
+    if integration_mode != "mock" or integration_execution_state != "mock_executed":
+        return None
+    if integration_export_readiness == "blocked":
+        return "export_blocked"
+    if integration_export_readiness == "conditional":
+        return "export_conditional"
+    if integration_export_readiness == "ready" and integration_audit_completeness == "partial":
+        return "audit_partial"
+    if integration_export_readiness == "ready" and integration_audit_completeness == "minimal":
+        return "audit_minimal"
+    if not integration_live_ready and integration_guard_summary in {
+        "blocked_live_calls_not_allowed",
+        "blocked_missing_credentials",
+    }:
+        return "live_blocked"
+    if (
+        integration_mode == "mock"
+        and integration_export_readiness == "ready"
+        and integration_audit_completeness == "complete"
+    ):
+        return "mock_ready"
+    return None
+
+
+def _build_integration_summary_priority_label(
+    integration_summary_priority: str | None,
+) -> str | None:
+    if integration_summary_priority == "export_blocked":
+        return "Export Blocked"
+    if integration_summary_priority == "export_conditional":
+        return "Export Conditional"
+    if integration_summary_priority == "audit_partial":
+        return "Audit Partial"
+    if integration_summary_priority == "audit_minimal":
+        return "Audit Minimal"
+    if integration_summary_priority == "live_blocked":
+        return "Live Blocked"
+    if integration_summary_priority == "mock_ready":
+        return "Mock Ready"
+    if integration_summary_priority == "ready":
+        return "Ready"
+    return None
+
+
+def _build_integration_summary_reason_codes(
+    *,
+    integration_summary_priority: str | None,
+) -> list[str] | None:
+    if integration_summary_priority is None:
+        return None
+    ordered_reasons = [
+        ("summary_export_blocked", integration_summary_priority == "export_blocked"),
+        ("summary_export_conditional", integration_summary_priority == "export_conditional"),
+        ("summary_audit_partial", integration_summary_priority == "audit_partial"),
+        ("summary_audit_minimal", integration_summary_priority == "audit_minimal"),
+        ("summary_live_blocked", integration_summary_priority == "live_blocked"),
+        ("summary_mock_ready", integration_summary_priority == "mock_ready"),
+        ("summary_ready", integration_summary_priority == "ready"),
+    ]
+    return [code for code, include in ordered_reasons if include]

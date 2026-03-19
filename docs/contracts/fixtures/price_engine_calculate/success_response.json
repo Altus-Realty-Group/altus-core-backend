@@ -152,6 +152,11 @@
       "integrationExportReasonCodes": null,
       "integrationAuditCompleteness": null,
       "integrationAuditCompletenessLabel": null,
+      "integrationSummaryStatus": null,
+      "integrationSummaryStatusLabel": null,
+      "integrationSummaryPriority": null,
+      "integrationSummaryPriorityLabel": null,
+      "integrationSummaryReasonCodes": null,
       "exportReadiness": "blocked",
       "exportReadinessLabel": "Export Blocked",
       "exportReadinessReasonCodes": [
