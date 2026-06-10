@@ -361,6 +361,19 @@ A read-only Supabase connector query against `information_schema.role_table_gran
 | `public.investors` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
 | `public.investors_legacy_2` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
 
+### Grantability Detail
+
+A read-only connector query verified that all listed broad privileges for `anon` and `authenticated` have `is_grantable = NO`.
+
+| Finding | Status |
+| --- | --- |
+| `anon` privileges grantable onward | No |
+| `authenticated` privileges grantable onward | No |
+| Direct broad privileges still present | Yes |
+| Direct exposure risk reduced by non-grantability | No |
+
+The non-grantable status prevents downstream delegation by `anon` and `authenticated`, but it does not make the schema safe. The direct privilege exposure remains because the roles themselves still hold broad privileges.
+
 ### Grants Exposure Interpretation
 
 - The live database grants currently allow broad table-level privileges to Supabase client roles on the listed public tables.
@@ -614,6 +627,8 @@ Contractors must not receive blanket Altus Platform access.
 Migration drafting remains blocked until all of the following are documented:
 
 - public table RLS policy design is complete
+- grantability documented but not treated as mitigation
+- direct privilege revocation plan remains required
 - forced-RLS decision per public auth/access/asset/client table
 - service-role and table-owner bypass impact review
 - confirmation whether forced RLS should remain false for server-only tables
