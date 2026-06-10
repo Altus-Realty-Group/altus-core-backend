@@ -234,21 +234,58 @@ This log should capture:
 - user suspended
 - session invalidated
 
+## App-First Access Modeling Rule
+
+Access MUST be defined from actual Altus apps and workflows backward.
+
+Do NOT create user roles just because a real estate business might interact with that party.
+
+Every role, permission, and entitlement MUST map to:
+
+- a real Altus app
+- a real workflow
+- a real screen or data surface
+- a real business reason
+- a real data scope
+- a known create, edit, view, or delete boundary
+
+Unknown future users MUST remain open questions, not modeled permissions.
+
 ## Segmentation Rules
 
-The bridge model MUST support these user classes:
+The bridge model MUST support only these current planning-scope user classes:
 
 - Altus internal users
 - clients
 - contractors
 - vendors
 - investors
-- lenders
-- agents
-- owners
-- tenants
-- guests
 - service accounts
+
+## Explicitly Excluded Access Classes - Current Scope
+
+The following are NOT current app-access classes unless later approved by Dion with a specific app workflow:
+
+- appraisers
+- insurance contacts
+- inspectors
+- title companies
+- closing attorneys
+- external agents
+- external brokers
+- generic vendors not tied to a real Altus app workflow
+- bookkeeping or accounting app users, because no bookkeeping app is currently approved in this auth model
+
+## Attorney Access Correction
+
+Attorney access, if created, is for legal operations only.
+
+Legal operations include evictions, damages, collections, demand letters, tenant or property disputes, and related legal work.
+
+- attorneys do NOT receive Deal Room access by default
+- attorneys do NOT receive global property, investor, underwriting, or admin access by default
+- any attorney access MUST be case, property, or matter scoped
+- attorney access SHOULD be treated as a limited external legal-work surface, not a general platform role
 
 Required rules:
 
@@ -266,12 +303,31 @@ Required rules:
 
 - ECC: internal only
 - Price Engine: internal only
-- Field App: internal plus scoped contractors, vendors, and field users
-- Construction Manager: internal plus scoped contractors, vendors, estimators, and approved external project users
+- Field App: internal plus scoped contractors and vendors tied to real field workflows
+- Construction Manager: internal plus scoped contractors and vendors tied to real project workflows
 - Investor Hub: investor-scoped
 - Deal Room: deal or invite scoped
 - Altus Core Admin: platform-owner and super-admin only
 - future apps: denied by default until entitlement exists
+
+## Required App Access Definition Register
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Name of the actual Altus app or module |
+| Primary Purpose | What the app exists to do |
+| Core Workflow | Main business process supported |
+| Primary Internal Users | Altus staff roles that use it |
+| External Users | External users, if any |
+| External Access Type | None, portal, task-only, document-only, case-scoped, deal-scoped, property-scoped, or similar |
+| Data Access Scope | Exact data boundaries |
+| Create/Edit/Delete Rights | Who can change data |
+| View-Only Rights | Who can only view data |
+| Explicit No-Access Parties | Parties that should not access this app |
+| Auth/RLS Notes | Required entitlement and RLS implications |
+| Open Questions | Unknowns requiring Dion approval |
+
+No entitlement table, app role, or RLS design SHOULD be finalized until the app register is completed or at least seeded with the real Altus apps currently in scope.
 
 ## RLS Strategy
 

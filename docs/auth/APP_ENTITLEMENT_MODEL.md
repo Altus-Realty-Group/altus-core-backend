@@ -11,6 +11,23 @@ Mutation Status: Documentation only; no DB writes
 
 This document defines the Altus Core app registry, entitlement, role, permission, scope, assignment, and audit model.
 
+## App-First Access Modeling Rule
+
+Access MUST be defined from actual Altus apps and workflows backward.
+
+Do NOT create user roles just because a real estate business might interact with that party.
+
+Every role, permission, and entitlement MUST map to:
+
+- a real Altus app
+- a real workflow
+- a real screen or data surface
+- a real business reason
+- a real data scope
+- a known create, edit, view, or delete boundary
+
+Unknown future users MUST remain open questions, not modeled permissions.
+
 ## Separation Rules
 
 The Altus Core model MUST keep the following concerns separate.
@@ -23,18 +40,13 @@ Identity answers who the subject is.
 
 User category answers what business class the subject belongs to.
 
-Canonical categories:
+Current planning-scope categories:
 
 - `altus_internal`
 - `client`
 - `contractor`
 - `vendor`
 - `investor`
-- `lender`
-- `agent`
-- `owner`
-- `tenant`
-- `guest`
 - `service_account`
 
 ### Organization or Company Membership
@@ -108,6 +120,50 @@ External users MUST satisfy all of the following:
 5. permission for the requested action
 
 External users are DENIED BY DEFAULT from internal-only apps.
+
+## Explicitly Excluded Access Classes - Current Scope
+
+The following are NOT current app-access classes unless later approved by Dion with a specific app workflow:
+
+- appraisers
+- insurance contacts
+- inspectors
+- title companies
+- closing attorneys
+- external agents
+- external brokers
+- generic vendors not tied to a real Altus app workflow
+- bookkeeping or accounting app users, because no bookkeeping app is currently approved in this auth model
+
+## Attorney Access Correction
+
+Attorney access, if created, is for legal operations only.
+
+Legal operations include evictions, damages, collections, demand letters, tenant or property disputes, and related legal work.
+
+- attorneys do NOT receive Deal Room access by default
+- attorneys do NOT receive global property, investor, underwriting, or admin access by default
+- any attorney access MUST be case, property, or matter scoped
+- attorney access SHOULD be treated as a limited external legal-work surface, not a general platform role
+
+## Required App Access Definition Register
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Name of the actual Altus app or module |
+| Primary Purpose | What the app exists to do |
+| Core Workflow | Main business process supported |
+| Primary Internal Users | Altus staff roles that use it |
+| External Users | External users, if any |
+| External Access Type | None, portal, task-only, document-only, case-scoped, deal-scoped, property-scoped, or similar |
+| Data Access Scope | Exact data boundaries |
+| Create/Edit/Delete Rights | Who can change data |
+| View-Only Rights | Who can only view data |
+| Explicit No-Access Parties | Parties that should not access this app |
+| Auth/RLS Notes | Required entitlement and RLS implications |
+| Open Questions | Unknowns requiring Dion approval |
+
+No entitlement table, app role, or RLS design SHOULD be finalized until the app register is completed or at least seeded with the real Altus apps currently in scope.
 
 ## Example Entitlement Records
 

@@ -80,22 +80,34 @@ Identity answers who the subject is.
 
 There MUST be one shared Altus identity per person or service account, backed by Supabase Auth and mapped to a platform user record.
 
+## App-First Access Modeling Rule
+
+Access MUST be defined from actual Altus apps and workflows backward.
+
+Do NOT create user roles just because a real estate business might interact with that party.
+
+Every role, permission, and entitlement MUST map to:
+
+- a real Altus app
+- a real workflow
+- a real screen or data surface
+- a real business reason
+- a real data scope
+- a known create, edit, view, or delete boundary
+
+Unknown future users MUST remain open questions, not modeled permissions.
+
 ### User Category
 
 User category answers what business class the subject belongs to.
 
-Canonical user categories:
+Current planning-scope user categories:
 
 - `altus_internal`
 - `client`
 - `contractor`
 - `vendor`
 - `investor`
-- `lender`
-- `agent`
-- `owner`
-- `tenant`
-- `guest`
 - `service_account`
 
 User category MUST NOT be collapsed into role, entitlement, or scope.
@@ -229,6 +241,20 @@ Altus internal users MAY receive broad multi-app access by approved policy, but 
 
 An `@altus-realty.com` email address MUST NOT be treated as automatic admin.
 
+## Explicitly Excluded Access Classes - Current Scope
+
+The following are NOT current app-access classes unless later approved by Dion with a specific app workflow:
+
+- appraisers
+- insurance contacts
+- inspectors
+- title companies
+- closing attorneys
+- external agents
+- external brokers
+- generic vendors not tied to a real Altus app workflow
+- bookkeeping or accounting app users, because no bookkeeping app is currently approved in this auth model
+
 ## External Segmented Access Policy
 
 External users MUST have explicit app entitlement and explicit scope.
@@ -237,9 +263,20 @@ External users:
 
 - MUST NOT access internal-only routes
 - MUST NOT infer unrelated Altus apps
-- MUST NOT cross client, contractor, vendor, investor, or lender boundaries
+- MUST NOT cross client, contractor, vendor, or investor boundaries
 - MUST have revocable grants
 - MUST have grant, denial, and revocation audit records
+
+## Attorney Access Correction
+
+Attorney access, if created, is for legal operations only.
+
+Legal operations include evictions, damages, collections, demand letters, tenant or property disputes, and related legal work.
+
+- attorneys do NOT receive Deal Room access by default
+- attorneys do NOT receive global property, investor, underwriting, or admin access by default
+- any attorney access MUST be case, property, or matter scoped
+- attorney access SHOULD be treated as a limited external legal-work surface, not a general platform role
 
 ## App Defaults
 
@@ -253,11 +290,11 @@ Price Engine is internal-only by default.
 
 ### Field App
 
-Field App supports internal users plus scoped contractors, vendors, and field users.
+Field App supports internal users plus scoped contractors and vendors tied to real field workflows.
 
 ### Construction Manager
 
-Construction Manager supports internal users plus scoped contractors, vendors, estimators, and explicitly approved external project users.
+Construction Manager supports internal users plus scoped contractors and vendors tied to real project workflows.
 
 ### Investor Hub
 
@@ -267,9 +304,32 @@ Investor Hub is investor-scoped.
 
 Deal Room is deal-scoped and invite-scoped.
 
+Attorney access is NOT implied by default.
+
 ### Altus Core Admin
 
 Altus Core Admin is platform-owner or super-admin only.
+
+## Required App Access Definition Register
+
+Each real Altus app MUST be defined in an app access register before entitlement, role, or RLS design is finalized.
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Name of the actual Altus app or module |
+| Primary Purpose | What the app exists to do |
+| Core Workflow | Main business process supported |
+| Primary Internal Users | Altus staff roles that use it |
+| External Users | External users, if any |
+| External Access Type | None, portal, task-only, document-only, case-scoped, deal-scoped, property-scoped, or similar |
+| Data Access Scope | Exact data boundaries |
+| Create/Edit/Delete Rights | Who can change data |
+| View-Only Rights | Who can only view data |
+| Explicit No-Access Parties | Parties that should not access this app |
+| Auth/RLS Notes | Required entitlement and RLS implications |
+| Open Questions | Unknowns requiring Dion approval |
+
+No entitlement table, app role, or RLS design SHOULD be finalized until the app register is completed or at least seeded with the real Altus apps currently in scope.
 
 ## Live Schema Reconciliation Required Before Migration
 
