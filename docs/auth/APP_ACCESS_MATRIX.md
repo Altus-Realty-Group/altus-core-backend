@@ -73,19 +73,19 @@ The following are NOT current app-access classes unless later approved by Dion w
 
 ## App-Specific Rules
 
-### ECC
+### ECC Register Entry
 
 - internal command center only
 - external users denied by default
 - future external portal views MUST use separate curated entitlements
 
-### Price Engine
+### Price Engine Register Entry
 
 - internal underwriting tool only by default
 - investors and clients consume published outputs elsewhere
 - no raw underwriting access for external users unless an explicit future policy changes that rule
 
-### Field App
+### Field App Register Entry
 
 Allowed contractor actions when granted:
 
@@ -108,7 +108,7 @@ Denied contractor actions:
 - acquisition underwriting
 - internal legal notes
 
-### Construction Manager
+### Construction Manager Register Entry
 
 Allowed contractor or vendor actions when granted:
 
@@ -135,7 +135,7 @@ Denied contractor or vendor actions:
 - limited to assigned investor profile, commitments, communications, and published opportunities or deals
 - operational data denied unless explicitly published
 
-### Deal Room
+### Deal Room Register Entry
 
 - deal-scoped
 - only invited users may enter a room
@@ -189,3 +189,132 @@ Legal operations include evictions, damages, collections, demand letters, tenant
 | Open Questions | Unknowns requiring Dion approval |
 
 No entitlement table, app role, or RLS design SHOULD be finalized until the app register is completed or at least seeded with the real Altus apps currently in scope.
+
+## Seeded Current App Access Register
+
+### ECC
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | ECC |
+| Primary Purpose | Internal command center and operations surface |
+| Core Workflow | Internal operations coordination and approved internal command workflows |
+| Primary Internal Users | Approved internal Altus operators, including operations and legal staff when the workflow is documented |
+| External Users | None in current scope |
+| External Access Type | None |
+| Data Access Scope | Internal command-center data and curated ECC-only operational surfaces |
+| Create/Edit/Delete Rights | Approved internal ECC operators only |
+| View-Only Rights | Approved internal read-only users only |
+| Explicit No-Access Parties | Clients, contractors, vendors, investors, attorneys by default, appraisers, insurance contacts, inspectors, title companies, closing attorneys, external agents, external brokers |
+| Auth/RLS Notes | `ecc.access`; internal-only by default; any future external portal view must be a separate curated entitlement and separate surface |
+| Open Questions | Which exact ECC screens are legal-operations versus general operations surfaces |
+
+### Price Engine
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Price Engine |
+| Primary Purpose | Internal underwriting and scenario analysis |
+| Core Workflow | Internal pricing, underwriting, and scenario review |
+| Primary Internal Users | Approved internal underwriting and analysis staff |
+| External Users | None in current direct app scope |
+| External Access Type | None |
+| Data Access Scope | Internal underwriting scenarios and related internal decision-support data |
+| Create/Edit/Delete Rights | Approved internal Price Engine users only |
+| View-Only Rights | Approved internal read-only users only |
+| Explicit No-Access Parties | Clients, contractors, vendors, investors, attorneys by default, appraisers, insurance contacts, inspectors, title companies, closing attorneys, external agents, external brokers |
+| Auth/RLS Notes | `price_engine.access`; internal-only by default; published outputs elsewhere are not the same as raw app access |
+| Open Questions | Which published outputs may be exposed outside the app and through which separate reporting surface |
+
+### Field App
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Field App |
+| Primary Purpose | Field work execution and assigned operational task handling |
+| Core Workflow | Assigned work orders, jobs, tasks, property access, logs, and completion activity |
+| Primary Internal Users | Altus field operations staff and supervising internal operators |
+| External Users | Contractors and vendors tied to real field workflows |
+| External Access Type | Task-only, assignment-scoped, and property-scoped |
+| Data Access Scope | Assigned work orders, jobs, tasks, properties, and explicitly granted supporting notes or media surfaces |
+| Create/Edit/Delete Rights | Internal users manage work items; assigned external users may submit logs, media, and completion updates when explicitly granted |
+| View-Only Rights | Assigned external users may view only their assigned work and explicitly granted supporting details |
+| Explicit No-Access Parties | Investors, attorneys by default, appraisers, insurance contacts, inspectors, title companies, closing attorneys, external agents, external brokers |
+| Auth/RLS Notes | `field_app.access`; external users require explicit entitlement plus assignment or scope; no ECC, Price Engine, Investor Hub, or Deal Room access by implication |
+| Open Questions | Whether any client-facing field visibility is a real approved workflow or should remain denied |
+
+### Construction Manager
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Construction Manager |
+| Primary Purpose | Project execution, task coordination, schedule handling, and PO-related workflow |
+| Core Workflow | Assigned project, trade, task, schedule, document, and PO coordination |
+| Primary Internal Users | Construction managers and approved internal project staff |
+| External Users | Contractors and vendors tied to real project workflows |
+| External Access Type | Project-scoped and assignment-scoped |
+| Data Access Scope | Assigned project, task, trade, schedule, PO, and approved scope-document surfaces |
+| Create/Edit/Delete Rights | Internal project staff manage project records; assigned external users may submit approved media or logs and view approved status surfaces when granted |
+| View-Only Rights | Assigned external users may view approved assigned project and PO-status surfaces only |
+| Explicit No-Access Parties | Investors, attorneys by default, appraisers, insurance contacts, inspectors, title companies, closing attorneys, external agents, external brokers |
+| Auth/RLS Notes | `construction_manager.access`; scope and assignment remain mandatory for external users; no investor underwriting or unrelated project visibility |
+| Open Questions | Whether any external project user exists beyond contractor or vendor workflow and, if so, which exact screens require it |
+
+### Deal Room
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Deal Room |
+| Primary Purpose | Deal-scoped invited document and collaboration surface |
+| Core Workflow | Invited deal review, document access, commenting, and signing workflows |
+| Primary Internal Users | Approved internal deal team and room administrators |
+| External Users | Investors and clients only when tied to a documented invited deal workflow |
+| External Access Type | Deal-scoped, invite-scoped, and document-scoped |
+| Data Access Scope | Only the invited deal room and only published artifacts within that room |
+| Create/Edit/Delete Rights | Internal room administrators and explicitly authorized internal deal users; invited external users only according to granted room access level |
+| View-Only Rights | Invited viewers and limited invited participants according to room-level permissions |
+| Explicit No-Access Parties | Attorneys by default, contractors, vendors, appraisers, insurance contacts, inspectors, title companies, closing attorneys, external agents, external brokers |
+| Auth/RLS Notes | `deal_room.access`; invite and deal scope are mandatory; attorney access is not implied by default |
+| Open Questions | Which room-level access labels remain approved after app-first review and whether any client-admin label should be narrowed |
+
+### Investor Hub Register Entry
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Investor Hub |
+| Primary Purpose | Investor-facing access to approved investor communications and published opportunity or deal surfaces |
+| Core Workflow | Assigned investor profile review, commitments, communications, and published opportunity or deal visibility |
+| Primary Internal Users | Approved internal staff supporting investor communications and publishing workflows |
+| External Users | Investors only |
+| External Access Type | Investor-scoped portal |
+| Data Access Scope | Assigned investor profile, commitments, communications, and published opportunities or deals only |
+| Create/Edit/Delete Rights | Internal approved users manage published investor-facing content and assignment decisions |
+| View-Only Rights | Assigned investors view only their approved investor-facing surfaces |
+| Explicit No-Access Parties | Contractors, vendors, attorneys by default, appraisers, insurance contacts, inspectors, title companies, closing attorneys, external agents, external brokers |
+| Auth/RLS Notes | `investor_hub.access`; investor-scoped; external access must stay limited to a documented investor workflow, not broad platform access |
+| Open Questions | Whether Investor Hub is a distinct approved app surface today or remains partially satisfied through scoped Deal Room or reporting workflows |
+
+### Altus Core Admin Register Entry
+
+| Field | Required Definition |
+| --- | --- |
+| App Name | Altus Core Admin |
+| Primary Purpose | Platform administration and protected admin-only auth or control surfaces |
+| Core Workflow | Approved administrative management of platform-level settings and privileged control flows |
+| Primary Internal Users | `platform_owner` and `super_admin` only |
+| External Users | None |
+| External Access Type | None |
+| Data Access Scope | Admin-only platform control and administration surfaces |
+| Create/Edit/Delete Rights | Explicit admin users only |
+| View-Only Rights | No general internal read-only access by default |
+| Explicit No-Access Parties | Clients, contractors, vendors, investors, attorneys by default, appraisers, insurance contacts, inspectors, title companies, closing attorneys, external agents, external brokers, general internal operators without admin entitlement |
+| Auth/RLS Notes | `altus_core_admin.access`; explicit admin only; internal email/domain is never sufficient; privileged actions must remain auditable |
+| Open Questions | Which exact admin screens and APIs belong here versus a separate internal operations surface |
+
+## Candidate Modules Held As Open Questions
+
+These candidates are intentionally NOT modeled as approved app-access classes yet because the current repo context does not define them as separate approved apps or modules:
+
+- Asset Servicing or Property Operations: workflow area may exist, but no separate approved app/module definition is documented in the current auth planning set
+- Investor-facing access outside Investor Hub or scoped Deal Room: keep tied to documented reporting or deal workflows only
+- Legal operations surface: may require a case, property, or matter-scoped module, but no separate approved app is documented yet
