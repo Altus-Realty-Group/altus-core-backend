@@ -461,6 +461,33 @@ where n.nspname = 'public'
 order by c.relname;
 ```
 
+## Connector-Verified Public Forced-RLS Inventory
+
+A read-only connector query using `pg_class.relrowsecurity` and `pg_class.relforcerowsecurity` verified the RLS and forced-RLS posture for public base tables.
+
+| Table | RLS enabled | RLS forced |
+| --- | ---: | ---: |
+| `public.altus_sessions` | true | false |
+| `public.altus_users` | true | false |
+| `public.asset_data_raw` | false | false |
+| `public.asset_specs_reconciled` | false | false |
+| `public.assets` | false | false |
+| `public.audit_log` | true | false |
+| `public.client_companies` | false | false |
+| `public.client_company_members` | false | false |
+| `public.clients` | false | false |
+| `public.investor_criteria` | true | false |
+| `public.investor_sync_queue` | true | false |
+| `public.investors_legacy` | true | false |
+
+### Forced-RLS Interpretation
+
+- No inspected public table has forced RLS enabled.
+- RLS-enabled tables are not forced, meaning table owners and privileged contexts may still bypass RLS.
+- RLS-disabled tables remain exposed under the previously documented broad grants.
+- Remediation planning must consider both RLS enablement and whether forced RLS is required for any table.
+- Do not enable forced RLS blindly; it may affect privileged maintenance/service workflows.
+
 ## Auth Architecture Impact
 
 The live schema currently has two identity/session concepts:
@@ -560,6 +587,9 @@ Contractors must not receive blanket Altus Platform access.
 Migration drafting remains blocked until all of the following are documented:
 
 - public table RLS policy design is complete
+- forced-RLS decision per public auth/access/asset/client table
+- service-role and table-owner bypass impact review
+- confirmation whether forced RLS should remain false for server-only tables
 - public table grant remediation design
 - anon/authenticated privilege narrowing plan
 - runtime consumer impact assessment before REVOKE/ALTER statements
