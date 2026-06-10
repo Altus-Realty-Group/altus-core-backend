@@ -438,6 +438,29 @@ This strengthens the migration gate because policy design is mandatory before en
 - The bridge migration must include a policy design phase before executable SQL.
 - Existing application consumers must be mapped before any RLS enforcement change.
 
+## Failed Read-Only Catalog Query
+
+- Query type: read-only metadata/catalog inspection.
+- Status: failed.
+- Failure reason: `pg_tables.forcerowsecurity` column was not available.
+- Impact: no data was changed; no schema was changed; prior RLS posture findings remain intact.
+- Corrected method: inspect forced RLS through `pg_class.relforcerowsecurity`.
+
+Proposed corrected query for future documentation-only inspection:
+
+```sql
+select
+   n.nspname as schema_name,
+   c.relname as table_name,
+   c.relrowsecurity as rls_enabled,
+   c.relforcerowsecurity as rls_forced
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+   and c.relkind = 'r'
+order by c.relname;
+```
+
 ## Auth Architecture Impact
 
 The live schema currently has two identity/session concepts:
