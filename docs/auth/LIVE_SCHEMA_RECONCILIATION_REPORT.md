@@ -488,6 +488,33 @@ A read-only connector query using `pg_class.relrowsecurity` and `pg_class.relfor
 - Remediation planning must consider both RLS enablement and whether forced RLS is required for any table.
 - Do not enable forced RLS blindly; it may affect privileged maintenance/service workflows.
 
+## Connector-Verified Public Table Owner Inventory
+
+A read-only connector query using `pg_class.relowner` and `pg_roles.rolname` verified owner roles for inspected public base tables.
+
+| Table | RLS enabled | RLS forced | Owner role |
+| --- | ---: | ---: | --- |
+| `public.altus_sessions` | true | false | `postgres` |
+| `public.altus_users` | true | false | `postgres` |
+| `public.asset_data_raw` | false | false | `postgres` |
+| `public.asset_specs_reconciled` | false | false | `postgres` |
+| `public.assets` | false | false | `postgres` |
+| `public.audit_log` | true | false | `postgres` |
+| `public.client_companies` | false | false | `postgres` |
+| `public.client_company_members` | false | false | `postgres` |
+| `public.clients` | false | false | `postgres` |
+| `public.investor_criteria` | true | false | `postgres` |
+| `public.investor_sync_queue` | true | false | `postgres` |
+| `public.investors_legacy` | true | false | `postgres` |
+
+### Owner and Bypass Interpretation
+
+- All inspected public base tables are owned by `postgres`.
+- Because forced RLS is false on all inspected public tables, table-owner and privileged contexts may bypass RLS.
+- This does not change the immediate anon/authenticated exposure finding for RLS-disabled tables with broad grants.
+- It does affect remediation design because server-side, service-role, and owner-context execution paths must be reviewed before enabling or forcing RLS.
+- Do not force RLS blindly. It may break maintenance, migration, service-role, or backend workflows if dependencies are not mapped.
+
 ## Auth Architecture Impact
 
 The live schema currently has two identity/session concepts:
@@ -590,6 +617,10 @@ Migration drafting remains blocked until all of the following are documented:
 - forced-RLS decision per public auth/access/asset/client table
 - service-role and table-owner bypass impact review
 - confirmation whether forced RLS should remain false for server-only tables
+- table owner and privileged context review
+- owner-bypass impact assessment
+- service-role versus anon/authenticated access boundary documentation
+- decision whether any table should use `FORCE ROW LEVEL SECURITY`
 - public table grant remediation design
 - anon/authenticated privilege narrowing plan
 - runtime consumer impact assessment before REVOKE/ALTER statements
