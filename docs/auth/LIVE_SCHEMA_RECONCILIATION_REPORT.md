@@ -333,6 +333,7 @@ These tables are exposed to the anon and authenticated roles used by Supabase cl
 
 Important:
 Do not auto-apply remediation blindly. Enabling RLS without policies can block legitimate application access.
+The exposure is compounded by verified broad table grants to `anon` and `authenticated`.
 
 Proposed-only remediation SQL (not executed):
 
@@ -344,6 +345,51 @@ ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.asset_data_raw ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.asset_specs_reconciled ENABLE ROW LEVEL SECURITY;
 ```
+
+## Connector-Verified Public Grants Exposure
+
+A read-only Supabase connector query against `information_schema.role_table_grants` verified that `anon` and `authenticated` have broad privileges on multiple public tables.
+
+| Table | Grantees | Verified privileges |
+| --- | --- | --- |
+| `public.asset_data_raw` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+| `public.asset_specs_reconciled` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+| `public.assets` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+| `public.client_companies` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+| `public.client_company_members` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+| `public.clients` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+| `public.investors` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+| `public.investors_legacy_2` | `anon`, `authenticated` | DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+
+### Grants Exposure Interpretation
+
+- The live database grants currently allow broad table-level privileges to Supabase client roles on the listed public tables.
+- For tables with RLS disabled, this is a direct exposure risk.
+- For tables where RLS may later be enabled, grants must still be reviewed and likely narrowed.
+- Security remediation must include both RLS policy design and privilege/grant revocation design.
+- Do not auto-revoke grants without dependency and runtime consumer mapping.
+
+### Proposed-Only Grants Remediation Pattern
+
+The following is a proposed remediation pattern only and was not executed:
+
+```sql
+REVOKE ALL ON TABLE public.asset_data_raw FROM anon, authenticated;
+REVOKE ALL ON TABLE public.asset_specs_reconciled FROM anon, authenticated;
+REVOKE ALL ON TABLE public.assets FROM anon, authenticated;
+REVOKE ALL ON TABLE public.client_companies FROM anon, authenticated;
+REVOKE ALL ON TABLE public.client_company_members FROM anon, authenticated;
+REVOKE ALL ON TABLE public.clients FROM anon, authenticated;
+REVOKE ALL ON TABLE public.investors FROM anon, authenticated;
+REVOKE ALL ON TABLE public.investors_legacy_2 FROM anon, authenticated;
+```
+
+This SQL must not be executed until:
+
+- runtime consumers are mapped
+- service-role/server-only access paths are confirmed
+- RLS policies are designed
+- application read/write paths are updated or confirmed
 
 ## Connector-Verified Public RLS Policy Inventory
 
@@ -491,8 +537,12 @@ Contractors must not receive blanket Altus Platform access.
 Migration drafting remains blocked until all of the following are documented:
 
 - public table RLS policy design is complete
+- public table grant remediation design
+- anon/authenticated privilege narrowing plan
+- runtime consumer impact assessment before REVOKE/ALTER statements
 - existing consumer mapping is complete
 - public auth/session usage is confirmed active/deprecated/unused
+- confirmation whether `public.investors` and `public.investors_legacy_2` are active, deprecated, or orphaned
 - app entitlement/role/permission physical model is decided
 - proposed RLS policies are reviewed before execution
 
