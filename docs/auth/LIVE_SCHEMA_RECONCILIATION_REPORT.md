@@ -345,6 +345,53 @@ ALTER TABLE public.asset_data_raw ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.asset_specs_reconciled ENABLE ROW LEVEL SECURITY;
 ```
 
+## Connector-Verified Public RLS Policy Inventory
+
+A read-only policy inventory query was executed against project ref `srzwamukysmhiaaviwiv`:
+
+```sql
+select schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
+from pg_policies
+where schemaname = 'public'
+order by tablename, policyname;
+```
+
+Verified result:
+
+```json
+[]
+```
+
+This confirms zero public RLS policies were returned.
+
+No public policies are currently documented for any inspected public table, including tables where RLS is enabled and tables where RLS is disabled.
+
+This strengthens the migration gate because policy design is mandatory before enabling RLS on exposed tables or relying on RLS-enabled auth/platform tables.
+
+### Public RLS Policy Finding
+
+| Finding | Status |
+| --- | --- |
+| Public RLS policy query executed | Verified |
+| Public policies returned | 0 |
+| Policies on `public.altus_users` | None returned |
+| Policies on `public.altus_sessions` | None returned |
+| Policies on `public.audit_log` | None returned |
+| Policies on `public.clients` | None returned |
+| Policies on `public.client_companies` | None returned |
+| Policies on `public.client_company_members` | None returned |
+| Policies on `public.assets` | None returned |
+| Policies on `public.asset_data_raw` | None returned |
+| Policies on `public.asset_specs_reconciled` | None returned |
+
+### RLS Interpretation
+
+- RLS-enabled tables with no policies are not automatically usable by normal Supabase client roles.
+- RLS-disabled tables remain exposed unless protected outside Supabase client access.
+- The remediation cannot be simply "enable RLS" without creating correct policies.
+- The bridge migration must include a policy design phase before executable SQL.
+- Existing application consumers must be mapped before any RLS enforcement change.
+
 ## Auth Architecture Impact
 
 The live schema currently has two identity/session concepts:
@@ -443,15 +490,11 @@ Contractors must not receive blanket Altus Platform access.
 
 Migration drafting remains blocked until all of the following are documented:
 
-- public table RLS policy inventory
-- public auth/session function inventory
-- existing consumers of `public.altus_users`
-- existing consumers of `public.altus_sessions`
-- whether `public.altus_users.password_hash` is active, deprecated, or unused
-- whether `public.altus_sessions.session_token` is active, deprecated, or unused
-- RLS policy design for currently exposed public tables
-- bridge design mapping `auth.users.id` to platform users
-- app entitlement/role/permission physical storage decision
+- public table RLS policy design is complete
+- existing consumer mapping is complete
+- public auth/session usage is confirmed active/deprecated/unused
+- app entitlement/role/permission physical model is decided
+- proposed RLS policies are reviewed before execution
 
 Until then, docs may be refined, but executable migration drafting remains blocked.
 
