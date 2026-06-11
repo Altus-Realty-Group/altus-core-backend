@@ -1,4 +1,4 @@
-# Altus Core Backend
+# Altus Core Backend Repo Identity
 
 `altus-core-backend` is the backend/runtime repository for Altus Core backend services and related runtime evidence.
 
@@ -24,5 +24,3 @@ Documentation cleanup does not authorize runtime behavior changes.
 No SQL, RLS, grants, migrations, schema changes, auth implementation changes, or legacy object cleanup may occur from this README pass.
 
 This repository is distinct from `Altus-Realty-Group/altus-core-ops`.
-
-Code repo for the Enterprise Asset Master + Azure Functions.
