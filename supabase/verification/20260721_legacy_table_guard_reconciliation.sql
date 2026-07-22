@@ -127,12 +127,14 @@ begin
     select 1
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
+    join pg_roles owner_role on owner_role.oid = c.relowner
     cross join lateral aclexplode(
       coalesce(c.relacl, acldefault('r', c.relowner))
     ) acl
     left join pg_roles grantee_role on grantee_role.oid = acl.grantee
     where n.nspname = 'public'
       and c.relkind in ('r', 'p')
+      and owner_role.rolname = current_user
       and (
         acl.grantee = 0
         or (
