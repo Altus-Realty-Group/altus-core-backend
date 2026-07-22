@@ -1,4 +1,4 @@
-# 2026-07-21 Supabase migration reconciliation
+# 2026-07-21 ECC Supabase historical migration reconciliation
 
 ## Status
 
@@ -13,7 +13,7 @@ This is a historical backfill. The associated pull request must not be used to r
 
 ## Why reconciliation is required
 
-The live migration records and their statement arrays existed outside this repository. Without matching files in `supabase/migrations/`, the database control could not be reviewed, reproduced in a new environment, or governed by the repository DB proof gate.
+The live migration records and their statement arrays existed outside this repository. Without a repository copy, the database control could not be reviewed or governed. The recovered SQL is stored under `supabase/reconciled/ecc/migrations/` as a non-deploying historical lineage because the repository's active `supabase/migrations/` path automatically targets the separate Altus Core staging database.
 
 ## Technical effect
 
@@ -43,10 +43,11 @@ The second migration grants the schema usage and function execution required for
 - The two legacy tables exist and were observed with RLS disabled.
 - All other observed public tables had RLS enabled.
 - The two legacy tables were observed empty; emptiness is not an invariant and is not asserted by verification SQL.
+- The connected `altus-core-staging` project has a different migration lineage, contains neither legacy table, and does not contain either ECC migration version.
 
 ## Verification
 
-Run `supabase/verification/20260721_legacy_table_guard_reconciliation.sql` after apply in a non-canonical target. It fails closed when:
+Run `supabase/verification/20260721_legacy_table_guard_reconciliation.sql` only against the canonical ECC database or a separately authorized ECC-lineage clone. It fails closed when:
 
 - either migration record is absent;
 - the guard is absent, security definer, or lacks the pinned search path;
@@ -60,8 +61,9 @@ The verification accepts a future state where either legacy table gains table-na
 ## Deployment boundary
 
 - Canonical ECC database: no apply. Both versions are already recorded.
-- New or rebuilt environment: normal staging-first apply and verification.
-- Production promotion: manual authorization under the repository deployment SOP.
+- Altus Core staging: no apply. It is a separate schema lineage and lacks the guarded ECC objects.
+- Recovered files under `supabase/reconciled/ecc/migrations/` are historical evidence and are not consumed by automatic deployment workflows.
+- A new or rebuilt ECC environment requires a separately authorized, ECC-targeted apply path and verification; the repository's Altus Core staging workflow must not be reused.
 - No credential values or project secrets belong in the issue, migration files, verification output, or PR.
 
 ## Rollback boundary
