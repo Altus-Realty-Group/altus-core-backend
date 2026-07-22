@@ -1,182 +1,19 @@
-name: ALTUS-CORE — Supabase Migrations (Controlled)
+name: RETIRED - Legacy Supabase migration disabled
 
 on:
-  # PR checks (NO DB WRITE) — enables required status checks
-  pull_request:
-    branches: [main]
-    paths:
-      - "supabase/migrations/**"
-      - "supabase/policies/**"
-      - ".github/workflows/supabase-migrate.yml"
-
-  # Auto deploy to STAGING on merge/push to main
-  push:
-    branches: [main]
-    paths:
-      - "supabase/migrations/**"
-      - "supabase/policies/**"
-      - ".github/workflows/supabase-migrate.yml"
-
-  # Manual promotion
   workflow_dispatch:
-    inputs:
-      target:
-        description: "Deployment target"
-        required: true
-        default: "staging"
-        type: choice
-        options:
-          - staging
-          - production
 
 permissions:
   contents: read
 
-concurrency:
-  group: supabase-migrate-${{ github.ref }}-${{ github.event_name }}-${{ inputs.target || 'staging' }}
-  cancel-in-progress: false
-
 jobs:
-  # ------------------------------------------------------------
-  # PR CHECK (SAFE): validate migrations compile/lint only.
-  # No Supabase auth, no DB password, no db push.
-  # ------------------------------------------------------------
-  migrate-pr-check:
-    if: github.event_name == 'pull_request'
+  blocked-retired-workflow:
     runs-on: ubuntu-latest
-    name: migrate-pr-check
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Validate migration files exist
+      - name: Block legacy database authority
+        shell: bash
         run: |
-          set -euo pipefail
-          if [ -d "supabase/migrations" ]; then
-            echo "Found supabase/migrations"
-          else
-            echo "ERROR: supabase/migrations missing"
-            exit 1
-          fi
-
-      - name: Validate SQL files are readable
-        run: |
-          set -euo pipefail
-          FILES=$(git diff --name-only origin/main...HEAD | grep -E '^supabase/(migrations|policies)/.*\.(sql|SQL)$' || true)
-          if [ -z "$FILES" ]; then
-            echo "No SQL files changed in this PR."
-            exit 0
-          fi
-
-          echo "Changed SQL files:"
-          echo "$FILES"
-
-          for f in $FILES; do
-            test -s "$f" || (echo "ERROR: empty file $f" && exit 1)
-            LC_ALL=C tr -d '\000' < "$f" > /dev/null || (echo "ERROR: null bytes in $f" && exit 1)
-          done
-
-          echo "SQL readability checks passed."
-
-      - name: Supabase project config sanity
-        run: |
-          set -euo pipefail
-          if [ -f "supabase/config.toml" ]; then
-            echo "Found supabase/config.toml"
-          else
-            echo "NOTE: supabase/config.toml not found (ok if not used)."
-          fi
-
-  # ------------------------------------------------------------
-  # STAGING DEPLOY (AUTO): push to main OR dispatch(target=staging)
-  # Writes to STAGING DB.
-  # ------------------------------------------------------------
-  migrate-staging:
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
-    runs-on: ubuntu-latest
-    environment: staging
-    name: migrate-staging
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Login to Supabase
-        run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
-
-      - name: Link STAGING project
-        env:
-          SUPABASE_NON_INTERACTIVE: "true"
-        run: supabase link --project-ref "${{ secrets.SUPABASE_STAGING_PROJECT_REF }}"
-
-      - name: Prep STAGING DB
-        env:
-          DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
-        run: |
-          ENCODED_PASSWORD="$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD']))")"
-          psql "postgresql://postgres.${{ secrets.SUPABASE_STAGING_PROJECT_REF }}:${ENCODED_PASSWORD}@aws-0-us-west-2.pooler.supabase.com:5432/postgres" -c "alter table public.asset_specs_reconciled add column if not exists organization_id uuid;" || true
-
-      - name: Apply migrations to STAGING
-        continue-on-error: true
-        env:
-          DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
-          SUPABASE_NON_INTERACTIVE: "true"
-        run: |
-          set -euo pipefail
-          ENCODED_PASSWORD="$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD']))")"
-
-          supabase db push --include-all --yes \
-            --db-url "postgresql://postgres.${{ secrets.SUPABASE_STAGING_PROJECT_REF }}:${ENCODED_PASSWORD}@aws-0-us-west-2.pooler.supabase.com:5432/postgres"
-
-      - name: Query schema_migrations
-        env:
-          DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
-        run: |
-          ENCODED_PASSWORD="$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD']))")"
-          psql "postgresql://postgres.${{ secrets.SUPABASE_STAGING_PROJECT_REF }}:${ENCODED_PASSWORD}@aws-0-us-west-2.pooler.supabase.com:5432/postgres" -c "select * from supabase_migrations.schema_migrations;"
-
-  # ------------------------------------------------------------
-  # PRODUCTION DEPLOY (MANUAL ONLY): dispatch(target=production)
-  # Writes to PROD DB. Protected by GitHub env reviewers.
-  # ------------------------------------------------------------
-  migrate-production:
-    if: github.event_name == 'workflow_dispatch' && inputs.target == 'production'
-    runs-on: ubuntu-latest
-    environment: production
-    name: migrate-production
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Login to Supabase
-        run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
-
-      - name: Link PRODUCTION project
-        run: supabase link --project-ref "${{ secrets.SUPABASE_PROD_PROJECT_REF }}"
-
-      - name: Apply migrations to PRODUCTION
-        env:
-          DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
-        run: |
-          set -euo pipefail
-          ENCODED_PASSWORD="$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD']))")"
-
-          supabase db push --include-all \
-            --db-url "postgresql://postgres.${{ secrets.SUPABASE_PROD_PROJECT_REF }}:${ENCODED_PASSWORD}@aws-0-us-west-2.pooler.supabase.com:5432/postgres"
+          echo "Supabase migration execution is disabled in Altus-Realty-Group/altus-core-backend."
+          echo "Canonical migration governance moved to Altus-Realty-Group/altus-control-plane."
+          echo "Retirement tracking: https://github.com/Altus-Realty-Group/altus-control-plane/issues/7"
+          exit 1
