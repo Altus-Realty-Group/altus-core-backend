@@ -1,4 +1,4 @@
-name: RETIRED — Legacy Azure deployment disabled
+name: RETIRED - Legacy Azure deployment disabled
 
 on:
   workflow_dispatch:
