@@ -1,56 +1,19 @@
-name: Azure Deploy Staging - Asset Ingest
+name: RETIRED — Legacy Azure deployment disabled
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
-  deploy-staging:
+  blocked-retired-workflow:
     runs-on: ubuntu-latest
-    environment: staging
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Zip function package
+      - name: Block legacy deployment authority
+        shell: bash
         run: |
-          cd azure/functions/asset_ingest
-          zip -r ../../../asset_ingest.zip .
-
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: 8fa1cef5-94d5-45e7-9e5b-bc112ad9e823
-          tenant-id: 41f56839-6a08-4c0b-bf66-4f8ceac8816b
-          subscription-id: 3d1966c1-5273-4091-aab4-07c125e7b96d
-
-      - name: Set required Function App settings (worker indexing)
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            az functionapp config appsettings set \
-              --resource-group altus-core-staging-rg \
-              --name altus-core-staging-func \
-              --settings \
-                ALTUS_BUILD_SHA=${{ github.sha }} \
-                AzureWebJobsFeatureFlags=EnableWorkerIndexing \
-                FUNCTIONS_WORKER_RUNTIME=python \
-                FUNCTIONS_EXTENSION_VERSION=~4 \
-                SCM_DO_BUILD_DURING_DEPLOYMENT=1 \
-                ENABLE_ORYX_BUILD=true
-
-      - name: Deploy to staging Function App
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            az functionapp deployment source config-zip \
-              --resource-group altus-core-staging-rg \
-              --name altus-core-staging-func \
-              --src asset_ingest.zip \
-              --build-remote true
+          echo "Deployment is disabled in Altus-Realty-Group/altus-core-backend."
+          echo "Canonical backend and deployment governance moved to Altus-Realty-Group/altus-control-plane."
+          echo "Retirement tracking: https://github.com/Altus-Realty-Group/altus-control-plane/issues/7"
+          exit 1
