@@ -41,11 +41,7 @@ This repository remains available temporarily for historical reference and uniqu
 
 ## Retirement Tracking
 
-Retirement is tracked in `Altus-Realty-Group/altus-control-plane` under the issue titled:
-
-```text
-Retire legacy Altus backend repositories
-```
+Retirement is tracked in [Altus Control Plane Issue #7: Retire legacy Altus backend repositories](https://github.com/Altus-Realty-Group/altus-control-plane/issues/7).
 
 ## Final Rule
 
