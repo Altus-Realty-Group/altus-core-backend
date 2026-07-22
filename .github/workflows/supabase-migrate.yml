@@ -1,4 +1,4 @@
-name: RETIRED — Legacy Supabase migration disabled
+name: RETIRED - Legacy Supabase migration disabled
 
 on:
   workflow_dispatch:
