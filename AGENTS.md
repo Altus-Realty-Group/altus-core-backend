@@ -41,3 +41,10 @@
 - Describe scope boundaries and any systems intentionally left untouched
 - Call out contract, workflow, runtime, integration, or migration impact explicitly
 - Include rollback notes for any scaffold or workflow change
+
+## Organization Actions cost policy (Dion directive, 2026-09-27)
+
+- Before adding or expanding any workflow, document runner triggers, job and matrix fan-out, estimated minutes per run/month, timeout, artifact retention, external API calls, and required-check effects in the PR. Unknown spend is not zero; do not activate a paid service or increase a budget by implication.
+- Cancel superseded PR checks by workflow and PR number where safe. Do not cancel main, deployment, scheduled writes, or data migrations. Avoid redundant push and PR execution and unnecessary full-suite runs for unrelated changes while retaining required proof.
+- Keep bounded timeouts and deliberate retention. Preserve security, data, and release assertions when consolidating jobs. Never report skipped, canceled, or budget-blocked checks as passing.
+- Review repository and workflow Actions usage at least monthly; investigate unexpected growth before adding fan-out. Escalate any freshness tradeoff or cost-cap change to Dion before merging that behavioral change.
